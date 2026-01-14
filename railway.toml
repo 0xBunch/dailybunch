@@ -1,0 +1,25 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "npx prisma migrate deploy && npm start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+[crons]
+# Fetch RSS feeds every hour
+[crons.fetch-rss]
+schedule = "0 * * * *"
+endpoint = "/api/cron/fetch-rss"
+
+# Enrich new links with AI every 5 minutes
+[crons.enrich-links]
+schedule = "*/5 * * * *"
+endpoint = "/api/cron/enrich-links"
+
+# Send daily newsletter at 7am UTC
+[crons.send-newsletter]
+schedule = "0 7 * * *"
+endpoint = "/api/newsletter/send"
