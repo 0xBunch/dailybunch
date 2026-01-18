@@ -63,8 +63,8 @@ export default async function ScoreboardPage({
       <header className="border-b border-neutral-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <h1 className="font-serif text-2xl">Daily Bunch</h1>
-          <nav className="flex gap-6 text-sm">
-            <Link href="/dashboard" className="font-medium underline underline-offset-4">
+          <nav className="flex gap-6 text-sm" aria-label="Main navigation">
+            <Link href="/dashboard" className="font-medium underline underline-offset-4" aria-current="page">
               Scoreboard
             </Link>
             <Link href="/links" className="text-neutral-600 hover:text-neutral-900">
@@ -94,13 +94,13 @@ export default async function ScoreboardPage({
               </h3>
               <div className="flex flex-col gap-1">
                 {(["24h", "48h", "7d"] as const).map((range) => (
-                  <label key={range} className="flex items-center gap-2 text-sm">
+                  <label key={range} className="flex items-center gap-2 text-sm cursor-pointer">
                     <input
                       type="radio"
                       name="timeRange"
                       value={range}
                       defaultChecked={timeRange === range}
-                      className="h-3 w-3 border-neutral-300 text-neutral-900 focus:ring-0"
+                      className="h-3 w-3 border-neutral-300 text-neutral-900"
                     />
                     {range === "24h" && "Last 24 hours"}
                     {range === "48h" && "Last 48 hours"}
@@ -112,10 +112,14 @@ export default async function ScoreboardPage({
 
             {/* Category Filter */}
             <div>
-              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
+              <label
+                htmlFor="category-filter"
+                className="block text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2"
+              >
                 Category
-              </h3>
+              </label>
               <select
+                id="category-filter"
                 name="category"
                 defaultValue={params.category || ""}
                 className="w-full text-sm border border-neutral-200 rounded-none px-2 py-1"
@@ -131,10 +135,14 @@ export default async function ScoreboardPage({
 
             {/* Entity Filter */}
             <div>
-              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
+              <label
+                htmlFor="entity-filter"
+                className="block text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2"
+              >
                 Entity
-              </h3>
+              </label>
               <select
+                id="entity-filter"
                 name="entity"
                 defaultValue={params.entity || ""}
                 className="w-full text-sm border border-neutral-200 rounded-none px-2 py-1"
@@ -150,7 +158,7 @@ export default async function ScoreboardPage({
 
             <button
               type="submit"
-              className="w-full bg-neutral-900 text-white text-sm py-2 hover:bg-neutral-800"
+              className="w-full bg-neutral-900 text-white text-sm py-2 hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-neutral-900"
             >
               Apply Filters
             </button>

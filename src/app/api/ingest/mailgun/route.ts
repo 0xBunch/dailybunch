@@ -1,14 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
-import prisma from "@/lib/db";
-import { canonicalizeUrl } from "@/lib/canonicalize";
-
 /**
  * Mailgun Inbound Parse Webhook
  *
  * Receives forwarded emails, extracts links, canonicalizes them,
  * and stores them in the database with mentions.
+ *
+ * Error Handling:
+ * - Verifies Mailgun HMAC signature
+ * - Graceful degradation on canonicalization failure
+ * - Never breaks batch on individual link failure
+ * - Structured logging for all operations
  */
+
+import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
+import prisma from "@/lib/db";
+import { canonicalizeUrl } from "@/lib/canonicalize";
+import { log } from "@/lib/logger";
 
 // Verify Mailgun webhook signature
 function verifySignature(
@@ -18,7 +25,10 @@ function verifySignature(
 ): boolean {
   const signingKey = process.env.MAILGUN_WEBHOOK_SIGNING_KEY;
   if (!signingKey) {
-    console.error("MAILGUN_WEBHOOK_SIGNING_KEY not configured");
+    log.warn("MAILGUN_WEBHOOK_SIGNING_KEY not configured", {
+      service: "mailgun",
+      operation: "verifySignature",
+    });
     return false;
   }
 
@@ -96,11 +106,16 @@ async function isBlacklisted(url: string): Promise<boolean> {
   }
 }
 
-// Process a single link
+// Process a single link (never throws)
 async function processLink(
   url: string,
   sourceId: string
-): Promise<{ success: boolean; linkId?: string; error?: string }> {
+): Promise<{
+  success: boolean;
+  linkId?: string;
+  error?: string;
+  status?: string;
+}> {
   try {
     // Check blacklist first
     if (await isBlacklisted(url)) {
@@ -111,7 +126,12 @@ async function processLink(
     const result = await canonicalizeUrl(url);
 
     if (result.error) {
-      console.warn(`Canonicalization warning for ${url}: ${result.error}`);
+      log.warn("Canonicalization warning", {
+        service: "mailgun",
+        operation: "processLink",
+        url: url.slice(0, 100),
+        error: result.error,
+      });
     }
 
     // Check if canonical URL is blacklisted
@@ -119,7 +139,7 @@ async function processLink(
       return { success: false, error: "Canonical URL blacklisted" };
     }
 
-    // Upsert the link
+    // Upsert the link with status tracking
     const link = await prisma.link.upsert({
       where: { canonicalUrl: result.canonicalUrl },
       update: {
@@ -129,6 +149,10 @@ async function processLink(
         canonicalUrl: result.canonicalUrl,
         originalUrl: url,
         domain: result.domain,
+        // Track canonicalization status
+        canonicalStatus: result.status,
+        canonicalError: result.error || null,
+        needsManualReview: result.status === "failed",
       },
     });
 
@@ -141,7 +165,11 @@ async function processLink(
       },
     });
 
-    return { success: true, linkId: link.id };
+    return {
+      success: true,
+      linkId: link.id,
+      status: result.status,
+    };
   } catch (error) {
     // Handle unique constraint violation (duplicate mention)
     if (
@@ -158,6 +186,8 @@ async function processLink(
 }
 
 export async function POST(request: NextRequest) {
+  const op = log.operationStart("api", "ingest/mailgun", {});
+
   try {
     // Parse multipart form data
     const formData = await request.formData();
@@ -168,9 +198,17 @@ export async function POST(request: NextRequest) {
     const signature = formData.get("signature") as string;
 
     // Verify signature (skip in development if not configured)
-    if (process.env.NODE_ENV === "production" || process.env.MAILGUN_WEBHOOK_SIGNING_KEY) {
+    if (
+      process.env.NODE_ENV === "production" ||
+      process.env.MAILGUN_WEBHOOK_SIGNING_KEY
+    ) {
       if (!verifySignature(timestamp, token, signature)) {
-        console.error("Invalid Mailgun signature");
+        log.warn("Invalid Mailgun signature", {
+          service: "mailgun",
+          operation: "verifySignature",
+          timestamp,
+        });
+        op.end({ status: "failed", reason: "invalid_signature" });
         return NextResponse.json(
           { error: "Invalid signature" },
           { status: 401 }
@@ -183,15 +221,25 @@ export async function POST(request: NextRequest) {
     const from = formData.get("from") as string;
     const subject = formData.get("subject") as string;
     const bodyHtml = formData.get("body-html") as string;
-    const bodyPlain = formData.get("body-plain") as string;
 
-    console.log(`📧 Received email from: ${sender || from}`);
-    console.log(`   Subject: ${subject}`);
+    const senderEmail = sender || from || "";
+
+    log.info("Received email", {
+      service: "mailgun",
+      operation: "receiveEmail",
+      sender: senderEmail,
+      subject: subject?.slice(0, 100),
+    });
 
     // Match sender to a source
-    const sourceId = await matchSource(sender || from || "");
+    const sourceId = await matchSource(senderEmail);
     if (!sourceId) {
-      console.warn(`No matching source for sender: ${sender || from}`);
+      log.warn("No matching source for sender", {
+        service: "mailgun",
+        operation: "matchSource",
+        sender: senderEmail,
+      });
+      op.end({ status: "ignored", reason: "unknown_sender" });
       // Still return 200 to acknowledge receipt
       return NextResponse.json({
         status: "ignored",
@@ -203,7 +251,12 @@ export async function POST(request: NextRequest) {
     const htmlContent = bodyHtml || "";
     const links = extractLinksFromHtml(htmlContent);
 
-    console.log(`   Found ${links.length} links`);
+    log.info("Extracted links from email", {
+      service: "mailgun",
+      operation: "extractLinks",
+      linkCount: links.length,
+      sourceId,
+    });
 
     // Process each link
     const results = await Promise.all(
@@ -212,17 +265,44 @@ export async function POST(request: NextRequest) {
 
     const processed = results.filter((r) => r.success).length;
     const failed = results.filter((r) => !r.success).length;
+    const needsReview = results.filter(
+      (r) => r.success && r.status === "failed"
+    ).length;
 
-    console.log(`   Processed: ${processed}, Skipped/Failed: ${failed}`);
+    log.batchSummary(
+      "mailgun",
+      "processLinks",
+      {
+        total: links.length,
+        succeeded: processed,
+        failed,
+      },
+      { needsReview }
+    );
+
+    op.end({
+      status: "success",
+      linksFound: links.length,
+      linksProcessed: processed,
+      linksFailed: failed,
+    });
 
     return NextResponse.json({
       status: "ok",
       linksFound: links.length,
       linksProcessed: processed,
       linksFailed: failed,
+      needsManualReview: needsReview,
     });
   } catch (error) {
-    console.error("Mailgun webhook error:", error);
+    log.error("Mailgun webhook error", {
+      service: "mailgun",
+      operation: "handleWebhook",
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    op.end({ status: "failed", error: "internal_error" });
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

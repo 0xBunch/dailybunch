@@ -52,12 +52,37 @@ model Source {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  category      Category? @relation(fields: [categoryId], references: [id])
+  // Error tracking
+  lastError          String?   // Last fetch error message
+  lastErrorAt        DateTime? // When the last error occurred
+  consecutiveErrors  Int       @default(0) // Count of consecutive failures
+
+  category      Category?    @relation(fields: [categoryId], references: [id])
   mentions      Mention[]
+  sourceItems   SourceItem[]
 
   @@index([type])
   @@index([active])
   @@index([categoryId])
+}
+
+// Individual posts/items from RSS feeds or newsletters
+model SourceItem {
+  id          String    @id @default(cuid())
+  sourceId    String
+  title       String
+  url         String    @unique // The original RSS item link
+  pubDate     DateTime?
+  description String?
+  imageUrl    String?   // og:image from the source article
+  linkCount   Int       @default(0) // Number of links extracted from this item
+  createdAt   DateTime  @default(now())
+
+  source      Source    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId])
+  @@index([pubDate])
+  @@index([createdAt])
 }
 
 // ============================================
@@ -72,6 +97,8 @@ model Link {
   title         String?
   description   String?
   imageUrl      String?
+  author        String?   // Article author if available
+  publishedAt   DateTime? // Article publication date if available
 
   // AI-generated fields
   aiSummary     String?
@@ -80,6 +107,14 @@ model Link {
   // Taxonomy
   categoryId    String?
   subcategoryId String?
+
+  // Processing status tracking
+  canonicalStatus   String    @default("success") // success | failed | pending
+  canonicalError    String?   // Error message if canonicalization failed
+  aiStatus          String    @default("pending") // pending | success | failed | skipped
+  aiError           String?   // Error message if AI analysis failed
+  aiRetryCount      Int       @default(0) // Number of AI analysis retries
+  needsManualReview Boolean   @default(false) // Flag for manual review queue
 
   // Timestamps
   firstSeenAt   DateTime  @default(now())
@@ -98,6 +133,8 @@ model Link {
   @@index([subcategoryId])
   @@index([firstSeenAt])
   @@index([lastSeenAt])
+  @@index([aiStatus])
+  @@index([needsManualReview])
 }
 
 model Mention {

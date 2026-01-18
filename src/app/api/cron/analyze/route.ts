@@ -1,6 +1,3 @@
-import { NextRequest, NextResponse } from "next/server";
-import { analyzeUnanalyzedLinks } from "@/lib/analyze";
-
 /**
  * AI Analysis Cron Endpoint
  *
@@ -11,7 +8,18 @@ import { analyzeUnanalyzedLinks } from "@/lib/analyze";
  *
  * Protected by CRON_SECRET header.
  * Recommended: Run every 5-10 minutes via Railway cron or external scheduler.
+ *
+ * Error Handling:
+ * - Uses retry logic for Claude API calls
+ * - Tracks aiStatus and aiRetryCount in database
+ * - Structured logging for monitoring
+ * - Also supports retrying failed analyses
  */
+
+import { NextRequest, NextResponse } from "next/server";
+import { analyzeUnanalyzedLinks, retryFailedAnalyses } from "@/lib/analyze";
+import { log } from "@/lib/logger";
+import { wrapError } from "@/lib/errors";
 
 export async function POST(request: NextRequest) {
   // Verify cron secret
@@ -19,24 +27,98 @@ export async function POST(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
 
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    log.warn("Unauthorized cron access attempt", {
+      service: "api",
+      operation: "cron/analyze",
+    });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const op = log.operationStart("api", "cron/analyze", {});
+
   try {
-    // Get limit from query params (default 10)
+    // Get parameters from query string
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get("limit") || "10", 10);
+    const mode = searchParams.get("mode") || "new"; // "new" or "retry"
 
-    const result = await analyzeUnanalyzedLinks(limit);
-
-    return NextResponse.json({
-      status: "ok",
-      ...result,
+    log.info("Starting AI analysis cron", {
+      service: "api",
+      operation: "cron/analyze",
+      limit,
+      mode,
     });
+
+    let result: {
+      analyzed?: number;
+      failed?: number;
+      skipped?: number;
+      retried?: number;
+      succeeded?: number;
+    };
+
+    if (mode === "retry") {
+      // Retry previously failed analyses
+      result = await retryFailedAnalyses(limit);
+
+      log.info("Retry analysis complete", {
+        service: "api",
+        operation: "cron/analyze",
+        ...result,
+      });
+
+      op.end({
+        status: "success",
+        mode: "retry",
+        retried: result.retried,
+        succeeded: result.succeeded,
+        failed: result.failed,
+      });
+
+      return NextResponse.json({
+        status: "ok",
+        mode: "retry",
+        ...result,
+      });
+    } else {
+      // Analyze new unanalyzed links
+      result = await analyzeUnanalyzedLinks(limit);
+
+      log.info("AI analysis complete", {
+        service: "api",
+        operation: "cron/analyze",
+        ...result,
+      });
+
+      op.end({
+        status: "success",
+        mode: "new",
+        analyzed: result.analyzed,
+        failed: result.failed,
+        skipped: result.skipped,
+      });
+
+      return NextResponse.json({
+        status: "ok",
+        mode: "new",
+        ...result,
+      });
+    }
   } catch (error) {
-    console.error("Cron analyze error:", error);
+    const serviceError = wrapError(error, {
+      service: "api",
+      operation: "cron/analyze",
+    });
+
+    log.error(serviceError);
+    op.end({ status: "failed", errorCode: serviceError.code });
+
     return NextResponse.json(
-      { error: "Failed to analyze links" },
+      {
+        error: "Failed to analyze links",
+        errorCode: serviceError.code,
+        message: serviceError.message,
+      },
       { status: 500 }
     );
   }

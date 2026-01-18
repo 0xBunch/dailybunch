@@ -49,7 +49,8 @@ export function LinkCard({
             type="checkbox"
             checked={selected}
             onChange={(e) => onSelect(id, e.target.checked)}
-            className="mt-1.5 h-4 w-4 rounded-none border-neutral-300 text-neutral-900 focus:ring-0 focus:ring-offset-0"
+            aria-label={`Select ${title || 'link'}`}
+            className="mt-1.5 h-4 w-4 rounded-none border-neutral-300 text-neutral-900"
           />
         )}
 

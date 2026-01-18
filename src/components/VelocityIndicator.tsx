@@ -15,10 +15,15 @@ export function VelocityIndicator({ count, sources }: VelocityIndicatorProps) {
     return <span className="text-xs text-neutral-400">no sources</span>;
   }
 
+  const sourceList = sources.join(", ");
+
   return (
     <span
       className="inline-flex items-center text-xs text-neutral-600 cursor-help"
-      title={sources.join(", ")}
+      title={sourceList}
+      tabIndex={0}
+      role="note"
+      aria-label={`${count} ${count === 1 ? "source" : "sources"}: ${sourceList}`}
     >
       <span className="font-semibold">{count}</span>
       <span className="ml-1 opacity-60">

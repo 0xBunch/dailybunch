@@ -6,12 +6,14 @@
   --accent: #0066cc;
   --muted: #666666;
   --border: #e5e5e5;
+  --font-headline: "Special Gothic Expanded One", "Times New Roman", Times, serif;
+  --font-body: "Special Gothic Condensed One", "Times New Roman", Times, serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Georgia, "Times New Roman", Times, serif;
+  font-family: var(--font-body);
   line-height: 1.5;
 }
 
@@ -29,11 +31,14 @@ a:hover {
   text-decoration: none;
 }
 
-/* Dense, text-forward layout */
+/* Headlines - Special Gothic Expanded One, all caps */
 h1, h2, h3, h4, h5, h6 {
-  font-weight: 700;
+  font-family: var(--font-headline);
+  font-weight: 400; /* Special Gothic only has 400 weight */
   line-height: 1.2;
   text-wrap: balance;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 p {
@@ -82,5 +87,4 @@ input, textarea, select {
 
 input:focus, textarea:focus, select:focus {
   border-color: var(--foreground);
-  outline: none;
 }

@@ -67,11 +67,34 @@
 - [x] All routes functional
 - [x] Dashboard performance optimized (<500ms with 1000+ links)
 - [x] Railway deployment configuration (railway.toml)
+- [x] Error handling infrastructure (errors.ts, retry.ts, logger.ts)
+- [x] Graceful degradation for all external services
+- [x] Status tracking in database (canonicalStatus, aiStatus, aiRetryCount)
+- [x] Source error tracking (lastError, consecutiveErrors)
 - [ ] Production environment variables set
 - [ ] Cron jobs scheduled (RSS poll, AI analysis)
 - [ ] Production endpoints verified
 
 **Status:** In Progress
+
+---
+
+## Error Handling Strategy
+
+**Infrastructure:**
+- `src/lib/errors.ts` - ServiceError class with typed error codes
+- `src/lib/retry.ts` - Exponential backoff with jitter, service presets
+- `src/lib/logger.ts` - Structured JSON logging for Railway
+
+**Graceful Degradation:**
+- **Claude API fails:** Link stored without AI analysis, queued for retry (aiStatus='pending')
+- **Redirect following fails:** Original URL stored, link flagged (needsManualReview=true)
+- **Resend fails:** Digest stays as draft, error shown to user with retry option
+- **RSS fetch fails:** Source error tracked, other sources continue
+
+**Database Tracking:**
+- Links: canonicalStatus, canonicalError, aiStatus, aiError, aiRetryCount, needsManualReview
+- Sources: lastError, lastErrorAt, consecutiveErrors
 
 ---
 
