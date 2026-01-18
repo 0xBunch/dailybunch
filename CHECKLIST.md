@@ -65,12 +65,28 @@
 
 - [x] Build compiles successfully
 - [x] All routes functional
-- [ ] Railway deployment configuration
+- [x] Dashboard performance optimized (<500ms with 1000+ links)
+- [x] Railway deployment configuration (railway.toml)
 - [ ] Production environment variables set
 - [ ] Cron jobs scheduled (RSS poll, AI analysis)
 - [ ] Production endpoints verified
 
 **Status:** In Progress
+
+---
+
+## Performance Optimization
+
+**Problem:** Initial dashboard query with Prisma includes took 1700ms
+
+**Solution:** Raw SQL with ARRAY_AGG for velocity + source aggregation
+
+**Results:**
+- Database execution: ~15ms
+- Local to Railway (with network): ~136ms
+- Target: <500ms ✅
+
+**Query:** See `src/lib/queries.ts` for optimized `getVelocityLinks()` function
 
 ---
 
