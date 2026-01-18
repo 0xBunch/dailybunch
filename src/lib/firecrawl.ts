@@ -52,9 +52,10 @@ export async function fetchMetadataWithFirecrawl(
 
     const durationMs = Math.round(performance.now() - startTime);
 
-    if (!result.success) {
+    // The scrape method throws on failure, so if we get here it succeeded
+    if (!result) {
       log.externalCall("firecrawl", "scrape", url, durationMs, "error", {
-        error: result.error || "Unknown error",
+        error: "No result returned",
       });
       return {};
     }
@@ -65,20 +66,21 @@ export async function fetchMetadataWithFirecrawl(
     const metadata: PageMetadata = {};
 
     // Firecrawl returns metadata in the result
-    if (result.metadata) {
-      metadata.title = result.metadata.title || result.metadata.ogTitle;
-      metadata.description =
-        result.metadata.description || result.metadata.ogDescription;
-      metadata.imageUrl = result.metadata.ogImage;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const meta = (result as any).metadata;
+    if (meta) {
+      metadata.title = meta.title || meta.ogTitle;
+      metadata.description = meta.description || meta.ogDescription;
+      metadata.imageUrl = meta.ogImage;
 
       // Try to extract author
-      if (result.metadata.author) {
-        metadata.author = result.metadata.author;
+      if (meta.author) {
+        metadata.author = meta.author;
       }
 
       // Try to extract publish date
-      if (result.metadata.publishedTime) {
-        const parsed = new Date(result.metadata.publishedTime);
+      if (meta.publishedTime) {
+        const parsed = new Date(meta.publishedTime);
         if (!isNaN(parsed.getTime())) {
           metadata.publishedAt = parsed;
         }
