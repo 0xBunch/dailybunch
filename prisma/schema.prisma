@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// TAXONOMY
+// ============================================
+
+model Category {
+  id            String        @id @default(cuid())
+  name          String        @unique // SPORTS, CULTURE, BUSINESS, AI
+  slug          String        @unique
+  createdAt     DateTime      @default(now())
+
+  subcategories Subcategory[]
+  links         Link[]
+  sources       Source[]
+}
+
+model Subcategory {
+  id         String   @id @default(cuid())
+  name       String   // Business, Lifestyle, NIL, etc.
+  slug       String
+  categoryId String
+  createdAt  DateTime @default(now())
+
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  links      Link[]
+
+  @@unique([categoryId, slug])
+  @@index([categoryId])
+}
+
+// ============================================
+// SOURCES
+// ============================================
+
+model Source {
+  id            String    @id @default(cuid())
+  name          String    // "Morning Brew", "Stratechery"
+  type          String    // "newsletter" | "rss"
+  url           String?   // RSS feed URL or newsletter domain
+  emailTrigger  String?   // Domain to match incoming emails
+  categoryId    String?
+  active        Boolean   @default(true)
+  lastFetchedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  category      Category? @relation(fields: [categoryId], references: [id])
+  mentions      Mention[]
+
+  @@index([type])
+  @@index([active])
+  @@index([categoryId])
+}
+
+// ============================================
+// LINKS & MENTIONS
+// ============================================
+
+model Link {
+  id            String    @id @default(cuid())
+  canonicalUrl  String    @unique
+  originalUrl   String?   // First URL we saw (before canonicalization)
+  domain        String
+  title         String?
+  description   String?
+  imageUrl      String?
+
+  // AI-generated fields
+  aiSummary     String?
+  aiAnalyzedAt  DateTime?
+
+  // Taxonomy
+  categoryId    String?
+  subcategoryId String?
+
+  // Timestamps
+  firstSeenAt   DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  category      Category?    @relation(fields: [categoryId], references: [id])
+  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
+  mentions      Mention[]
+  entities      LinkEntity[]
+  digestItems   DigestItem[]
+
+  @@index([domain])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([firstSeenAt])
+  @@index([lastSeenAt])
+}
+
+model Mention {
+  id        String   @id @default(cuid())
+  linkId    String
+  sourceId  String
+  seenAt    DateTime @default(now())
+  context   String?  // Surrounding text snippet
+  createdAt DateTime @default(now())
+
+  link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  source    Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([linkId, sourceId, seenAt])
+  @@index([linkId])
+  @@index([sourceId])
+  @@index([seenAt])
+}
+
+// ============================================
+// ENTITIES
+// ============================================
+
+model Entity {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  type      String   // "person" | "organization" | "product"
+  aliases   String[] // Alternative names/handles
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  links     LinkEntity[]
+
+  @@index([type])
+  @@index([active])
+}
+
+model LinkEntity {
+  id        String   @id @default(cuid())
+  linkId    String
+  entityId  String
+  createdAt DateTime @default(now())
+
+  link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  entity    Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([linkId, entityId])
+  @@index([linkId])
+  @@index([entityId])
+}
+
+model EntitySuggestion {
+  id         String   @id @default(cuid())
+  name       String
+  type       String   // "person" | "organization" | "product"
+  aliases    String[]
+  linkId     String?  // Link that triggered this suggestion
+  status     String   @default("pending") // "pending" | "approved" | "rejected"
+  createdAt  DateTime @default(now())
+  reviewedAt DateTime?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================
+// DIGESTS
+// ============================================
+
+model Digest {
+  id        String       @id @default(cuid())
+  headline  String
+  status    String       @default("draft") // "draft" | "sent"
+  sentAt    DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  items     DigestItem[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model DigestItem {
+  id        String   @id @default(cuid())
+  digestId  String
+  linkId    String
+  position  Int
+  note      String?  // Editor's note for this item
+  createdAt DateTime @default(now())
+
+  digest    Digest   @relation(fields: [digestId], references: [id], onDelete: Cascade)
+  link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@unique([digestId, linkId])
+  @@index([digestId])
+  @@index([linkId])
+}
+
+// ============================================
+// BLACKLIST
+// ============================================
+
+model Blacklist {
+  id        String   @id @default(cuid())
+  pattern   String   @unique // Domain or URL pattern to block
+  type      String   // "domain" | "url"
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([type])
+}
