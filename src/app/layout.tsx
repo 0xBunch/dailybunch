@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Daily Bunch",
-  description: "Cultural signal intelligence platform",
+  description: "Cultural signal intelligence - track link velocity across newsletters and feeds",
 };
 
 export default function RootLayout({
@@ -14,10 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased bg-background text-foreground">
-        {children}
-        <Toaster position="bottom-right" />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

@@ -1,20 +1,86 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --foreground: #1a1a1a;
+  --accent: #0066cc;
+  --muted: #666666;
+  --border: #e5e5e5;
 }
 
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Georgia, "Times New Roman", Times, serif;
+  line-height: 1.5;
+}
+
+/* Lo-fi editorial aesthetic - no rounded corners, no shadows */
+* {
+  border-radius: 0 !important;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+a:hover {
+  text-decoration: none;
+}
+
+/* Dense, text-forward layout */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+/* Tabular numbers for data */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Utility for monospace elements */
+code, pre, .mono {
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Mono", monospace;
+  font-size: 0.875em;
+}
+
+/* Simple focus states */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Simple button style */
+button, .btn {
+  border: 1px solid var(--foreground);
+  background: var(--background);
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button:hover, .btn:hover {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+/* Input styling */
+input, textarea, select {
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  font-family: inherit;
+  font-size: inherit;
+  width: 100%;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--foreground);
+  outline: none;
 }
