@@ -13,7 +13,18 @@ import { Resend } from "resend";
 import { Errors, ServiceError, wrapError } from "./errors";
 import { log } from "./logger";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-initialize to avoid build-time errors
+let resendClient: Resend | null = null;
+
+function getResendClient(): Resend | null {
+  if (!process.env.RESEND_API_KEY) {
+    return null;
+  }
+  if (!resendClient) {
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resendClient;
+}
 
 interface DigestItem {
   title: string;
@@ -178,7 +189,8 @@ export async function sendDigestEmail(data: DigestEmailData): Promise<SendResult
     const fromEmail = process.env.RESEND_FROM_EMAIL || "now@dailybunch.com";
 
     // Validate API key is configured
-    if (!process.env.RESEND_API_KEY) {
+    const resend = getResendClient();
+    if (!resend) {
       const error = Errors.authFailed({ ...context, reason: "RESEND_API_KEY not configured" });
       log.error(error);
       op.end({ status: "failed", errorCode: error.code });
