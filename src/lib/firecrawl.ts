@@ -45,7 +45,7 @@ export async function fetchMetadataWithFirecrawl(
   const startTime = performance.now();
 
   try {
-    const result = await firecrawl.scrapeUrl(url, {
+    const result = await firecrawl.scrape(url, {
       formats: ["html"],
       onlyMainContent: false,
     });
