@@ -1,36 +1,158 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Daily Bunch
+
+A cultural signal intelligence platform that surfaces what's traveling across the curated web. It answers the question: *"What are tastemakers collectively pointing at right now?"*
+
+**Live at:** [dailybunch.com](https://dailybunch.com)
+
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         DAILY BUNCH                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   1. INGEST                                                      │
+│   ─────────                                                      │
+│   RSS feeds from newsletters, blogs, and publications            │
+│   are polled on a schedule. Links are extracted from content.    │
+│                                                                  │
+│   2. CANONICALIZE                                                │
+│   ───────────────                                                │
+│   Tracking wrappers (Mailchimp, Substack, bit.ly) are unwrapped. │
+│   URLs are normalized (strip UTM params, trailing slashes).      │
+│                                                                  │
+│   3. SCORE                                                       │
+│   ────────                                                       │
+│   "Velocity" = how many sources linked to the same article.      │
+│   Higher velocity = more tastemakers are pointing at it.         │
+│                                                                  │
+│   4. CURATE                                                      │
+│   ─────────                                                      │
+│   Dashboard shows velocity-ranked links with filters.            │
+│   Select links, add notes, write a headline.                     │
+│                                                                  │
+│   5. PUBLISH                                                     │
+│   ─────────                                                      │
+│   One click sends a formatted digest via email.                  │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Features
+
+### Scoreboard Dashboard (`/dashboard`)
+- Links ranked by velocity (number of sources that mentioned them)
+- Filter by category, entity, and time range (24h, 48h, 7d)
+- AI-generated summaries for each link
+- Quick add to digest workflow
+
+### Sources Management (`/admin/sources`)
+- Configure RSS feeds and newsletter sources
+- Toggle "Include Own Links" per source:
+  - **OFF** (default): Only scrape external links the source mentions
+  - **ON**: Include the source's own articles on the scoreboard
+- Track fetch errors and consecutive failures
+
+### Link Browser (`/links`)
+- Browse all ingested links with search
+- Filter by category, source, sort by newest/oldest/velocity
+- Pagination for large datasets
+
+### Digest Builder (`/digests`)
+- Create curated digests from selected links
+- Add editorial notes per link
+- Send via Resend email API
+
+### Admin Panel (`/admin`)
+- Sources, Entities, Blacklist management
+- Trigger manual RSS polls and AI analysis
+- View pending entity suggestions
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Framework | Next.js 16 (App Router, Server Components) |
+| Database | PostgreSQL via Prisma |
+| Hosting | Railway |
+| Email Delivery | Resend |
+| AI Analysis | Anthropic Claude |
+| Link Unwrapping | Firecrawl |
+| Styling | Tailwind CSS v4 |
+
+## Data Model
+
+```
+Source (RSS feed / newsletter)
+  └── SourceItem (individual posts from the source)
+        └── extracts → Link (external articles mentioned)
+                         └── Mention (tracks which source, when)
+                         └── Entity (people, orgs, products tagged)
+```
+
+## Environment Variables
+
+```bash
+# Database
+DATABASE_URL=postgresql://...
+
+# AI
+ANTHROPIC_API_KEY=...
+
+# Link scraping
+FIRECRAWL_API_KEY=...
+
+# Email
+RESEND_API_KEY=...
+RESEND_FROM_EMAIL=digest@dailybunch.com
+RESEND_AUDIENCE_ID=...
+
+# Cron protection
+CRON_SECRET=...
+```
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+# Install dependencies
+npm install
+
+# Set up database
+npm run db:push
+npm run db:seed
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the dashboard.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## API Endpoints
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/ingest/poll` | Trigger RSS polling (cron) |
+| `POST /api/cron/analyze` | Run AI analysis on pending links |
+| `GET /api/links` | List links with velocity |
+| `POST /api/digests` | Create new digest |
+| `POST /api/digests/[id]/send` | Send digest via email |
+| `GET /api/health` | Health check (Railway) |
 
-## Learn More
+## Deployment
 
-To learn more about Next.js, take a look at the following resources:
+Deployed on Railway with:
+- PostgreSQL database
+- Nixpacks builder (Node.js 20+)
+- Health checks at `/api/health`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+# Build
+npm run build
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Start
+npm run start
+```
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Private project by [Edge City Expedition Company](https://edgecity.co)

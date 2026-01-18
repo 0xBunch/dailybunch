@@ -57,6 +57,9 @@ model Source {
   lastErrorAt        DateTime? // When the last error occurred
   consecutiveErrors  Int       @default(0) // Count of consecutive failures
 
+  // Link behavior
+  includeOwnLinks    Boolean   @default(false) // false = only scrape external links, true = include source's own articles
+
   category      Category?    @relation(fields: [categoryId], references: [id])
   mentions      Mention[]
   sourceItems   SourceItem[]

@@ -16,6 +16,16 @@ import { fetchMultipleFeeds } from "@/lib/rss";
 import { canonicalizeUrl } from "@/lib/canonicalize";
 import { log } from "@/lib/logger";
 
+// Extract domain from URL, normalizing www prefix
+function getDomainFromUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
 // Check if URL matches blacklist
 async function isBlacklisted(url: string): Promise<boolean> {
   try {
@@ -136,7 +146,7 @@ export async function POST(request: NextRequest) {
 
   const op = log.operationStart("api", "ingest/poll", {});
 
-  // Get all active RSS sources
+  // Get all active RSS sources with their settings
   const sources = await prisma.source.findMany({
     where: {
       type: "rss",
@@ -146,6 +156,7 @@ export async function POST(request: NextRequest) {
       id: true,
       name: true,
       url: true,
+      includeOwnLinks: true,
     },
   });
 
@@ -155,13 +166,15 @@ export async function POST(request: NextRequest) {
     sourceCount: sources.length,
   });
 
-  // Filter sources with valid URLs
+  // Filter sources with valid URLs and include settings
   const validSources = sources
     .filter((s) => s.url)
     .map((s) => ({
       id: s.id,
       name: s.name,
       url: s.url!,
+      includeOwnLinks: s.includeOwnLinks,
+      domain: getDomainFromUrl(s.url!),
     }));
 
   // Fetch all feeds in parallel with retry logic
@@ -246,6 +259,18 @@ export async function POST(request: NextRequest) {
       // The RSS item URL is stored as a SourceItem, not a Link
       // Links are the external articles that sources mention
       for (const contentLink of item.contentLinks) {
+        const linkDomain = getDomainFromUrl(contentLink);
+
+        // Skip own-domain links if includeOwnLinks is false
+        if (
+          !source.includeOwnLinks &&
+          linkDomain &&
+          source.domain &&
+          linkDomain === source.domain
+        ) {
+          continue;
+        }
+
         const contentResult = await processLink(contentLink, source.id);
         if (contentResult.success) {
           linksProcessed++;
