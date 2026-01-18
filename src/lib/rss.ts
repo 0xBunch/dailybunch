@@ -245,12 +245,28 @@ function parseAtomEntry(xml: string): FeedItem | null {
   };
 }
 
-function cleanCdata(str: string): string {
+function decodeHtmlEntities(str: string): string {
   return str
-    .replace(/<!\[CDATA\[/g, "")
-    .replace(/\]\]>/g, "")
-    .replace(/<[^>]+>/g, "") // Strip HTML tags
-    .trim();
+    .replace(/&ndash;/g, "–")
+    .replace(/&mdash;/g, "—")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)));
+}
+
+function cleanCdata(str: string): string {
+  return decodeHtmlEntities(
+    str
+      .replace(/<!\[CDATA\[/g, "")
+      .replace(/\]\]>/g, "")
+      .replace(/<[^>]+>/g, "") // Strip HTML tags
+      .trim()
+  );
 }
 
 /**
