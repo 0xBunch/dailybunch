@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Allow connections from Railway's proxy
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["dailybunch.com", "*.railway.app"],
+    },
+  },
 };
 
 export default nextConfig;
