@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllRssFeeds } from "@/services/rss";
+import { processUnanalyzedLinks } from "@/services/ai";
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
@@ -13,20 +13,20 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    console.log("Starting RSS fetch cron job...");
+    console.log("Starting AI analysis cron job...");
 
-    const result = await fetchAllRssFeeds();
+    const result = await processUnanalyzedLinks(10);
 
     console.log(
-      `RSS fetch complete: ${result.totalSources} sources, ${result.totalNewLinks} new links, ${result.errors} errors`
+      `AI analysis complete: ${result.processed} processed, ${result.errors} errors`
     );
 
     return NextResponse.json({
-      message: "RSS fetch complete",
+      message: "AI analysis complete",
       ...result,
     });
   } catch (error) {
-    console.error("Error in RSS fetch cron:", error);
+    console.error("Error in AI analysis cron:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -34,7 +34,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Also allow POST for flexibility
 export async function POST(req: NextRequest) {
   return GET(req);
 }

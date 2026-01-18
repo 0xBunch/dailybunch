@@ -1,154 +1,160 @@
-import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
-import bcrypt from "bcryptjs";
+import { PrismaClient, SourceType, EntityType } from "@prisma/client";
 
-const connectionString = process.env.DATABASE_URL;
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function main() {
   console.log("Seeding database...");
 
-  // Create admin user
-  const hashedPassword = await bcrypt.hash("admin123", 10);
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@dailybunch.com" },
-    update: {},
-    create: {
-      email: "admin@dailybunch.com",
-      name: "Admin",
-      password: hashedPassword,
-      role: "ADMIN",
-    },
+  // ============ CATEGORIES ============
+  console.log("Creating categories...");
+
+  const sports = await prisma.category.create({
+    data: { name: "Sports", slug: "sports" },
   });
-  console.log("Created admin user:", admin.email);
 
-  // Create some RSS feeds
-  const feeds = [
+  const culture = await prisma.category.create({
+    data: { name: "Culture", slug: "culture" },
+  });
+
+  const business = await prisma.category.create({
+    data: { name: "Business", slug: "business" },
+  });
+
+  const ai = await prisma.category.create({
+    data: { name: "AI", slug: "ai" },
+  });
+
+  // ============ SUBCATEGORIES ============
+  console.log("Creating subcategories...");
+
+  const sportsBusiness = await prisma.subcategory.create({
+    data: { name: "Business", slug: "business", categoryId: sports.id },
+  });
+
+  const businessTech = await prisma.subcategory.create({
+    data: { name: "Tech", slug: "tech", categoryId: business.id },
+  });
+
+  const businessGeneral = await prisma.subcategory.create({
+    data: { name: "General", slug: "general", categoryId: business.id },
+  });
+
+  const businessAdvertising = await prisma.subcategory.create({
+    data: { name: "Advertising", slug: "advertising", categoryId: business.id },
+  });
+
+  // ============ ENTITIES ============
+  console.log("Creating entities...");
+
+  const entities = [
+    { name: "Elon Musk", type: EntityType.PERSON, aliases: ["@elonmusk"] },
+    { name: "OpenAI", type: EntityType.ORGANIZATION, aliases: ["Open AI"] },
+    { name: "Anthropic", type: EntityType.ORGANIZATION, aliases: ["Claude"] },
+    { name: "Shohei Ohtani", type: EntityType.PERSON, aliases: ["Shohei"] },
+    { name: "Sabrina Carpenter", type: EntityType.PERSON, aliases: ["Sabrina"] },
+    { name: "Chris Black", type: EntityType.PERSON, aliases: ["@donetodeath"] },
+    { name: "Jason Stewart", type: EntityType.PERSON, aliases: ["@themjeans"] },
+    { name: "New Balance", type: EntityType.ORGANIZATION, aliases: ["newbalance"] },
+    { name: "iPhone", type: EntityType.PRODUCT, aliases: ["iphone"] },
+    { name: "Claude Code", type: EntityType.PRODUCT, aliases: ["claudecode"] },
+    { name: "Los Angeles Dodgers", type: EntityType.ORGANIZATION, aliases: ["dodgers"] },
+  ];
+
+  for (const entity of entities) {
+    await prisma.entity.create({ data: entity });
+  }
+
+  // ============ SOURCES ============
+  console.log("Creating sources...");
+
+  const sources = [
     {
-      name: "Hacker News",
-      url: "https://hnrss.org/frontpage",
-      isActive: true,
+      name: "Morning Brew",
+      type: SourceType.NEWSLETTER,
+      emailTrigger: "morningbrew.com",
+      categoryId: business.id,
+      subcategoryId: businessGeneral.id,
     },
     {
-      name: "TechCrunch",
-      url: "https://techcrunch.com/feed/",
-      isActive: true,
+      name: "Stratechery",
+      type: SourceType.RSS,
+      url: "https://stratechery.com/feed/",
+      categoryId: business.id,
+      subcategoryId: businessTech.id,
     },
     {
-      name: "Ars Technica",
-      url: "https://feeds.arstechnica.com/arstechnica/index",
-      isActive: true,
+      name: "SIC Weekly",
+      type: SourceType.RSS,
+      url: "https://sic.substack.com/feed",
+      categoryId: culture.id,
     },
     {
-      name: "The Verge",
-      url: "https://www.theverge.com/rss/index.xml",
-      isActive: true,
+      name: "Intelligencer",
+      type: SourceType.RSS,
+      url: "https://feeds.feedburner.com/nymag/intelligencer",
+      categoryId: culture.id,
     },
     {
-      name: "Wired",
-      url: "https://www.wired.com/feed/rss",
-      isActive: true,
+      name: "Front Office Sports",
+      type: SourceType.RSS,
+      url: "https://frontofficesports.com/feed/",
+      categoryId: sports.id,
+      subcategoryId: sportsBusiness.id,
+    },
+    {
+      name: "Boardroom",
+      type: SourceType.RSS,
+      url: "https://boardroom.tv/feed/",
+      categoryId: sports.id,
+    },
+    {
+      name: "GOOD THINKING",
+      type: SourceType.RSS,
+      url: "https://ingoodco.substack.com/feed",
+      categoryId: business.id,
+      subcategoryId: businessAdvertising.id,
+    },
+    {
+      name: "Why is this interesting?",
+      type: SourceType.NEWSLETTER,
+      emailTrigger: "whyistheinteresting.substack.com",
+      categoryId: culture.id,
     },
   ];
 
-  for (const feed of feeds) {
-    await prisma.rssFeed.upsert({
-      where: { url: feed.url },
-      update: {},
-      create: feed,
-    });
+  for (const source of sources) {
+    await prisma.source.create({ data: source });
   }
-  console.log("Created RSS feeds:", feeds.length);
 
-  // Create some sample tags
-  const tags = [
-    "Technology",
-    "AI & ML",
-    "Programming",
-    "Startups",
-    "Design",
-    "Business",
-    "Science",
-    "Security",
-    "Mobile",
-    "Web",
+  // ============ BLACKLISTED DOMAINS ============
+  console.log("Creating blacklisted domains...");
+
+  const blacklistedDomains = [
+    { domain: "twitter.com", reason: "Social media - too noisy" },
+    { domain: "x.com", reason: "Social media - too noisy" },
+    { domain: "facebook.com", reason: "Social media" },
+    { domain: "instagram.com", reason: "Social media" },
+    { domain: "linkedin.com", reason: "Social media" },
+    { domain: "youtube.com", reason: "Video platform" },
+    { domain: "mailchimp.com", reason: "Email service infrastructure" },
+    { domain: "substack.com", reason: "Newsletter platform homepage" },
+    { domain: "beehiiv.com", reason: "Newsletter platform" },
+    { domain: "list-manage.com", reason: "Email tracking" },
+    { domain: "mailchi.mp", reason: "Email tracking" },
   ];
 
-  for (const tagName of tags) {
-    const slug = tagName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-    await prisma.tag.upsert({
-      where: { slug },
-      update: {},
-      create: {
-        name: tagName,
-        slug,
-      },
-    });
+  for (const domain of blacklistedDomains) {
+    await prisma.blacklistedDomain.create({ data: domain });
   }
-  console.log("Created tags:", tags.length);
 
-  // Create some sample links
-  const sampleLinks = [
-    {
-      url: "https://example.com/article-1",
-      title: "The Future of AI in Software Development",
-      description:
-        "An in-depth look at how artificial intelligence is reshaping the way we write and maintain code.",
-      domain: "example.com",
-      status: "APPROVED" as const,
-      score: 42,
-      aiSummary:
-        "This article explores the transformative impact of AI on software development, from code generation to automated testing. It discusses current tools like GitHub Copilot and looks ahead to future possibilities.",
-    },
-    {
-      url: "https://example.com/article-2",
-      title: "Building Scalable Systems: Lessons from Big Tech",
-      description:
-        "Key architectural patterns and practices used by major technology companies to handle millions of users.",
-      domain: "example.com",
-      status: "FEATURED" as const,
-      score: 87,
-      aiSummary:
-        "A comprehensive guide to system design principles used by companies like Google, Amazon, and Netflix. Covers topics including microservices, caching strategies, and database sharding.",
-    },
-    {
-      url: "https://example.com/article-3",
-      title: "The State of JavaScript in 2025",
-      description:
-        "A comprehensive overview of the JavaScript ecosystem and what's trending this year.",
-      domain: "example.com",
-      status: "APPROVED" as const,
-      score: 35,
-      aiSummary:
-        "This annual survey results reveal interesting trends in the JavaScript community, including the rise of Bun, the continued dominance of TypeScript, and new frameworks gaining traction.",
-    },
-  ];
-
-  for (const link of sampleLinks) {
-    await prisma.link.upsert({
-      where: { url: link.url },
-      update: {},
-      create: {
-        ...link,
-        firstSeenAt: new Date(),
-      },
-    });
-  }
-  console.log("Created sample links:", sampleLinks.length);
-
-  console.log("Seeding completed!");
+  console.log("Seeding complete!");
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (e) => {
+  .catch((e) => {
     console.error(e);
-    await prisma.$disconnect();
     process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
   });

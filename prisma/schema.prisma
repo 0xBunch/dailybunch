@@ -1,192 +1,33 @@
 generator client {
-  provider        = "prisma-client-js"
-  engineType      = "binary"
-  previewFeatures = []
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-// ==================== AUTH (NextAuth.js v5) ====================
+// ============ SOURCES ============
 
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?   // For mock auth
-  role          Role      @default(USER)
-  isPro         Boolean   @default(false)
+model Source {
+  id            String       @id @default(cuid())
+  name          String
+  type          SourceType
+  url           String?      // RSS feed URL or website domain
+  emailTrigger  String?      // Domain to match for newsletter emails
+  categoryId    String
+  subcategoryId String?
+  isActive      Boolean      @default(true)
+  lastFetchedAt DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
-  // Subscription
-  stripeCustomerId       String?   @unique
-  stripeSubscriptionId   String?   @unique
-  stripePriceId          String?
-  stripeCurrentPeriodEnd DateTime?
+  category    Category     @relation(fields: [categoryId], references: [id])
+  subcategory Subcategory? @relation(fields: [subcategoryId], references: [id])
+  mentions    Mention[]
 
-  // Relations
-  accounts      Account[]
-  sessions      Session[]
-  feeds         UserFeed[]
-  filters       Filter[]
-  votes         Vote[]
-  comments      Comment[]
-  submittedLinks Link[]   @relation("SubmittedLinks")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-}
-
-enum Role {
-  USER
-  ADMIN
-  SUPERADMIN
-}
-
-// ==================== USER PREFERENCES ====================
-
-model UserFeed {
-  id        String   @id @default(cuid())
-  userId    String
-  feedId    String
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  feed      RssFeed  @relation(fields: [feedId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@unique([userId, feedId])
-}
-
-// ==================== CORE CONTENT ====================
-
-model Link {
-  id            String   @id @default(cuid())
-  url           String   @unique
-  title         String
-  description   String?  @db.Text
-  domain        String
-
-  // AI-generated content
-  aiSummary     String?  @db.Text
-
-  // Metrics
-  score         Int      @default(0)
-
-  // Status
-  status        LinkStatus @default(PENDING)
-
-  // Source tracking
-  firstSeenAt   DateTime @default(now())
-
-  // Relations
-  submitterId   String?
-  submitter     User?    @relation("SubmittedLinks", fields: [submitterId], references: [id])
-  mentions      Mention[]
-  tags          TagsOnLinks[]
-  votes         Vote[]
-  comments      Comment[]
-  editions      LinksOnEditions[]
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([status, createdAt])
-  @@index([score])
-  @@index([domain])
-}
-
-enum LinkStatus {
-  PENDING
-  APPROVED
-  FEATURED
-  ARCHIVED
-  REJECTED
-}
-
-model Vote {
-  id        String   @id @default(cuid())
-  value     Int      // 1 or -1
-  userId    String
-  linkId    String
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@unique([userId, linkId])
-}
-
-model Comment {
-  id        String   @id @default(cuid())
-  content   String   @db.Text
-
-  userId    String
-  linkId    String
-  parentId  String?
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
-  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id])
-  replies   Comment[] @relation("CommentReplies")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([linkId, createdAt])
-}
-
-// ==================== MENTIONS & SOURCES ====================
-
-model Mention {
-  id            String   @id @default(cuid())
-  linkId        String
-  sourceType    SourceType
-  sourceId      String
-  mentionedAt   DateTime @default(now())
-
-  link          Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
-
-  @@unique([linkId, sourceType, sourceId])
-  @@index([sourceType, sourceId])
+  @@index([type])
+  @@index([isActive])
 }
 
 enum SourceType {
@@ -194,139 +35,181 @@ enum SourceType {
   NEWSLETTER
 }
 
-model RssFeed {
-  id            String    @id @default(cuid())
-  url           String    @unique
-  name          String
-  description   String?
-  lastFetchedAt DateTime?
-  lastError     String?
-  isActive      Boolean   @default(true)
+// ============ CATEGORIES ============
 
-  subscribers   UserFeed[]
+model Category {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  slug          String        @unique
+  createdAt     DateTime      @default(now())
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  subcategories Subcategory[]
+  sources       Source[]
+  links         Link[]
 }
 
-model Newsletter {
-  id            String    @id @default(cuid())
-  fromEmail     String?
-  name          String
-  inboxEmail    String    @unique
-  description   String?
-  lastReceivedAt DateTime?
-  lastError     String?
-  isActive      Boolean   @default(true)
+model Subcategory {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String
+  categoryId String
+  createdAt  DateTime @default(now())
 
-  issues        NewsletterIssue[]
+  category Category @relation(fields: [categoryId], references: [id])
+  sources  Source[]
+  links    Link[]
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  @@unique([categoryId, slug])
 }
 
-model NewsletterIssue {
-  id            String    @id @default(cuid())
-  newsletterId  String
-  subject       String?
-  rawHtml       String?   @db.Text
-  linkCount     Int       @default(0)
+// ============ LINKS ============
 
-  newsletter    Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+model Link {
+  id              String    @id @default(cuid())
+  url             String    @unique
+  canonicalUrl    String    @unique
+  domain          String
+  title           String?
+  description     String?
+  imageUrl        String?
+  categoryId      String?
+  subcategoryId   String?
+  aiSummary       String?
+  aiProcessedAt   DateTime?
+  firstSeenAt     DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  receivedAt    DateTime  @default(now())
-  processedAt   DateTime?
+  category    Category?     @relation(fields: [categoryId], references: [id])
+  subcategory Subcategory?  @relation(fields: [subcategoryId], references: [id])
+  mentions    Mention[]
+  entities    LinkEntity[]
+  digestItems DigestItem[]
+
+  @@index([domain])
+  @@index([firstSeenAt])
+  @@index([categoryId])
 }
 
-// ==================== FILTERS ====================
+model Mention {
+  id        String   @id @default(cuid())
+  linkId    String
+  sourceId  String
+  context   String?  // Surrounding text or title from source
+  seenAt    DateTime @default(now())
+  createdAt DateTime @default(now())
 
-model Filter {
-  id            String   @id @default(cuid())
-  userId        String
-  name          String
-  criteria      Json     // { keywords: [], domains: [], minMentions: number }
-  aiPrompt      String?  @db.Text
-  isActive      Boolean  @default(true)
+  link   Link   @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  @@unique([linkId, sourceId])
+  @@index([seenAt])
 }
 
-// ==================== TAGS ====================
+// ============ ENTITIES ============
 
-model Tag {
-  id            String   @id @default(cuid())
-  name          String   @unique
-  slug          String   @unique
-  color         String   @default("#6366f1")
+model Entity {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  type      EntityType
+  aliases   String[]   @default([])
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
-  links         TagsOnLinks[]
+  links LinkEntity[]
 
-  createdAt     DateTime @default(now())
+  @@index([type])
 }
 
-model TagsOnLinks {
-  linkId        String
-  tagId         String
-
-  link          Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
-  tag           Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  assignedAt    DateTime @default(now())
-
-  @@id([linkId, tagId])
+enum EntityType {
+  PERSON
+  ORGANIZATION
+  PRODUCT
 }
 
-// ==================== NEWSLETTER EDITIONS ====================
+model LinkEntity {
+  id        String   @id @default(cuid())
+  linkId    String
+  entityId  String
+  createdAt DateTime @default(now())
 
-model PublishedEdition {
-  id            String   @id @default(cuid())
-  title         String
-  headline      String?
-  status        EditionStatus @default(DRAFT)
+  link   Link   @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
 
-  links         LinksOnEditions[]
-
-  publishedAt   DateTime?
-  emailSentAt   DateTime?
-  sentCount     Int      @default(0)
-  openCount     Int      @default(0)
-  clickCount    Int      @default(0)
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  @@unique([linkId, entityId])
 }
 
-model LinksOnEditions {
-  editionId     String
-  linkId        String
-  position      Int      @default(0)
+// ============ SUGGESTED ENTITIES ============
 
-  edition       PublishedEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
-  link          Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+model SuggestedEntity {
+  id         String     @id @default(cuid())
+  name       String
+  type       EntityType
+  reason     String?    // Why the AI suggested this
+  linkId     String?    // Link that triggered the suggestion
+  isApproved Boolean?   // null = pending, true = approved, false = rejected
+  createdAt  DateTime   @default(now())
 
-  @@id([editionId, linkId])
+  @@index([isApproved])
 }
 
-enum EditionStatus {
+// ============ DIGESTS ============
+
+model Digest {
+  id          String       @id @default(cuid())
+  headline    String
+  sentAt      DateTime?
+  scheduledAt DateTime?
+  status      DigestStatus @default(DRAFT)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  items DigestItem[]
+
+  @@index([status])
+  @@index([sentAt])
+}
+
+enum DigestStatus {
   DRAFT
   SCHEDULED
-  SENDING
   SENT
-  FAILED
 }
 
-// ==================== NEWSLETTER SUBSCRIBERS ====================
+model DigestItem {
+  id        String   @id @default(cuid())
+  digestId  String
+  linkId    String
+  note      String?  // Editor's note for this item
+  position  Int
+  createdAt DateTime @default(now())
+
+  digest Digest @relation(fields: [digestId], references: [id], onDelete: Cascade)
+  link   Link   @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@unique([digestId, linkId])
+  @@index([position])
+}
+
+// ============ SUBSCRIBERS ============
 
 model Subscriber {
   id            String   @id @default(cuid())
   email         String   @unique
-  name          String?
   isActive      Boolean  @default(true)
-
   subscribedAt  DateTime @default(now())
   unsubscribedAt DateTime?
-  lastSentAt    DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([isActive])
+}
+
+// ============ BLACKLIST ============
+
+model BlacklistedDomain {
+  id        String   @id @default(cuid())
+  domain    String   @unique
+  reason    String?
+  createdAt DateTime @default(now())
 }
