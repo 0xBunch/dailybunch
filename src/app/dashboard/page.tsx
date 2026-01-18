@@ -17,7 +17,6 @@ export const dynamic = 'force-dynamic';
 interface SearchParams {
   category?: string;
   entity?: string;
-  timeRange?: "24h" | "48h" | "7d";
 }
 
 export default async function ScoreboardPage({
@@ -26,15 +25,9 @@ export default async function ScoreboardPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const timeRange = params.timeRange || "48h";
 
-  // Calculate time filter
-  const now = new Date();
-  const timeFilter = {
-    "24h": new Date(now.getTime() - 24 * 60 * 60 * 1000),
-    "48h": new Date(now.getTime() - 48 * 60 * 60 * 1000),
-    "7d": new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
-  }[timeRange];
+  // Default to 7 days of data
+  const timeFilter = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   // Get categories and entities for filters (parallel)
   const [categories, entities] = await Promise.all([
@@ -89,29 +82,6 @@ export default async function ScoreboardPage({
         {/* Sidebar filters */}
         <aside className="w-56 border-r border-neutral-200 p-4 shrink-0">
           <form method="GET" className="space-y-6">
-            {/* Time Range */}
-            <div>
-              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
-                Time Range
-              </h3>
-              <div className="flex flex-col gap-1">
-                {(["24h", "48h", "7d"] as const).map((range) => (
-                  <label key={range} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input
-                      type="radio"
-                      name="timeRange"
-                      value={range}
-                      defaultChecked={timeRange === range}
-                      className="h-3 w-3 border-neutral-300 text-neutral-900"
-                    />
-                    {range === "24h" && "Last 24 hours"}
-                    {range === "48h" && "Last 48 hours"}
-                    {range === "7d" && "Last 7 days"}
-                  </label>
-                ))}
-              </div>
-            </div>
-
             {/* Category Filter */}
             <div>
               <label
