@@ -9,6 +9,8 @@ import prisma from "@/lib/db";
 import { LinkCard } from "@/components/LinkCard";
 import Link from "next/link";
 
+export const dynamic = 'force-dynamic';
+
 interface SearchParams {
   q?: string;
   category?: string;

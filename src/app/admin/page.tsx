@@ -7,6 +7,8 @@
 import prisma from "@/lib/db";
 import Link from "next/link";
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminPage() {
   // Get counts for overview
   const [linkCount, sourceCount, entityCount, pendingSuggestions, unanalyzedCount] =

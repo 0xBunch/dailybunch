@@ -12,6 +12,8 @@ import { getVelocityLinks, getLinkEntities } from "@/lib/queries";
 import { LinkCard } from "@/components/LinkCard";
 import Link from "next/link";
 
+export const dynamic = 'force-dynamic';
+
 interface SearchParams {
   category?: string;
   entity?: string;
