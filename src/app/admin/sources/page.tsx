@@ -52,6 +52,55 @@ export default async function SourcesAdminPage() {
           <h2 className="font-serif text-3xl">Sources</h2>
         </div>
 
+        {/* Add Source Form */}
+        <form
+          action="/api/admin/sources"
+          method="POST"
+          className="border border-neutral-200 p-4 mb-8 bg-neutral-50"
+        >
+          <h3 className="font-medium mb-4">Add New Source</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-neutral-700 mb-1">
+                Name
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                required
+                placeholder="e.g., Stratechery"
+                className="w-full border border-neutral-300 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="url" className="block text-sm font-medium text-neutral-700 mb-1">
+                RSS Feed URL
+              </label>
+              <input
+                type="url"
+                id="url"
+                name="url"
+                required
+                placeholder="https://example.com/feed.xml"
+                className="w-full border border-neutral-300 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-4">
+            <button
+              type="submit"
+              className="bg-neutral-900 text-white px-4 py-2 text-sm hover:bg-neutral-800"
+            >
+              Add Source
+            </button>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="includeOwnLinks" value="true" />
+              Include source&apos;s own links on scoreboard
+            </label>
+          </div>
+        </form>
+
         <p className="text-sm text-neutral-500 mb-6">
           Toggle &quot;Own Links&quot; to control whether a source&apos;s own
           articles appear on the scoreboard (ON) or only external links they
