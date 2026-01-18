@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { redirectTo } from "@/lib/redirect";
 
 export async function POST(
   request: NextRequest,
@@ -21,7 +22,7 @@ export async function POST(
       data: { includeOwnLinks },
     });
 
-    return NextResponse.redirect(new URL("/admin/sources", request.url));
+    return redirectTo(request, "/admin/sources");
   } catch (error) {
     console.error("Failed to update source:", error);
     return NextResponse.json(

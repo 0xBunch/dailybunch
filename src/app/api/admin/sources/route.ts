@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { redirectTo } from "@/lib/redirect";
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.redirect(new URL("/admin/sources", request.url));
+    return redirectTo(request, "/admin/sources");
   } catch (error) {
     console.error("Failed to create source:", error);
     return NextResponse.json(

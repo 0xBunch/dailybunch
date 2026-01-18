@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { redirectTo } from "@/lib/redirect";
 
 export async function POST(
   request: NextRequest,
@@ -57,7 +58,7 @@ export async function POST(
       });
     }
 
-    return NextResponse.redirect(new URL("/admin/entities", request.url));
+    return redirectTo(request, "/admin/entities");
   } catch (error) {
     console.error("Failed to process suggestion:", error);
     return NextResponse.json(
