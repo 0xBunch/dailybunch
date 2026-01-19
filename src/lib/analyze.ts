@@ -1,30 +1,32 @@
 /**
  * AI Link Analysis Service
  *
- * Uses Claude to:
+ * Uses Gemini Flash to:
  * 1. Categorize links
  * 2. Extract mentioned entities
  * 3. Generate summaries
  * 4. Suggest new entities (queued for approval)
  *
- * Error Handling:
- * - Retry on rate limits and transient failures
- * - Store failed links for cron retry
- * - Never blocks ingestion on AI failure
+ * Gemini Flash chosen for:
+ * - 1000+ RPM rate limits (vs Claude's ~60 RPM)
+ * - 40x cheaper than Claude Sonnet
+ * - Sub-second response times
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import prisma from "@/lib/db";
 import { Errors, ServiceError, wrapError } from "./errors";
 import { log } from "./logger";
 import { withRetry, RetryPresets } from "./retry";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 // Max retries before marking as failed
 const MAX_AI_RETRIES = 3;
+
+// Concurrency for parallel processing
+const PARALLEL_CONCURRENCY = 10;
 
 // Get all categories and subcategories for the prompt
 async function getTaxonomy(): Promise<string> {
@@ -63,9 +65,9 @@ export interface AnalysisResult {
 }
 
 /**
- * Call Claude API with retry logic
+ * Call Gemini API with retry logic
  */
-async function callClaudeWithRetry(
+async function callGeminiWithRetry(
   prompt: string,
   context: { service: string; operation: string; linkId?: string; url?: string }
 ): Promise<string> {
@@ -74,59 +76,52 @@ async function callClaudeWithRetry(
       const startTime = performance.now();
 
       try {
-        const message = await anthropic.messages.create({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1024,
-          messages: [{ role: "user", content: prompt }],
-        });
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+        const responseText = response.text();
 
         const durationMs = Math.round(performance.now() - startTime);
-        log.externalCall("claude", "POST", "messages.create", durationMs, 200);
-
-        // Extract text from response
-        const responseText =
-          message.content[0].type === "text" ? message.content[0].text : "";
+        log.externalCall("gemini", "POST", "generateContent", durationMs, 200);
 
         return responseText;
       } catch (error) {
         const durationMs = Math.round(performance.now() - startTime);
 
-        // Check for rate limit
-        if (error instanceof Anthropic.RateLimitError) {
-          log.externalCall("claude", "POST", "messages.create", durationMs, 429);
+        // Check for specific error types
+        const errorMessage = error instanceof Error ? error.message : String(error);
+
+        if (errorMessage.includes("429") || errorMessage.includes("RESOURCE_EXHAUSTED")) {
+          log.externalCall("gemini", "POST", "generateContent", durationMs, 429);
           throw Errors.rateLimit(context);
         }
 
-        // Check for auth errors
-        if (error instanceof Anthropic.AuthenticationError) {
-          log.externalCall("claude", "POST", "messages.create", durationMs, 401);
+        if (errorMessage.includes("401") || errorMessage.includes("UNAUTHENTICATED")) {
+          log.externalCall("gemini", "POST", "generateContent", durationMs, 401);
           throw Errors.authFailed(context);
         }
 
-        // Check for bad request
-        if (error instanceof Anthropic.BadRequestError) {
-          log.externalCall("claude", "POST", "messages.create", durationMs, 400);
-          throw Errors.badRequest(context, error.message);
+        if (errorMessage.includes("400") || errorMessage.includes("INVALID_ARGUMENT")) {
+          log.externalCall("gemini", "POST", "generateContent", durationMs, 400);
+          throw Errors.badRequest(context, errorMessage);
         }
 
-        // Server errors are retryable
-        if (error instanceof Anthropic.InternalServerError) {
-          log.externalCall("claude", "POST", "messages.create", durationMs, 500);
-          throw Errors.serverError(context, error);
+        if (errorMessage.includes("500") || errorMessage.includes("INTERNAL")) {
+          log.externalCall("gemini", "POST", "generateContent", durationMs, 500);
+          throw Errors.serverError(context, error instanceof Error ? error : new Error(errorMessage));
         }
 
         // Wrap other errors
-        log.externalCall("claude", "POST", "messages.create", durationMs, "error");
+        log.externalCall("gemini", "POST", "generateContent", durationMs, "error");
         throw wrapError(error, context);
       }
     },
     context,
-    RetryPresets.claude
+    RetryPresets.claude // Reuse retry config, works fine for Gemini
   );
 }
 
 /**
- * Parse Claude's JSON response with error handling
+ * Parse Gemini's JSON response with error handling
  */
 function parseAnalysisResponse(
   responseText: string,
@@ -161,16 +156,16 @@ export async function analyzeLink(
   url: string,
   title?: string | null,
   description?: string | null,
-  linkId?: string
+  linkId?: string,
+  cachedContext?: { taxonomy: string; entities: Array<{ id: string; name: string; aliases: string[]; type: string }> }
 ): Promise<AnalysisResult | null> {
   const context = { service: "analyze", operation: "analyzeLink", url, linkId };
   const op = log.operationStart("analyze", "analyzeLink", { url: url.slice(0, 100), linkId });
 
   try {
-    const [taxonomy, entities] = await Promise.all([
-      getTaxonomy(),
-      getEntities(),
-    ]);
+    // Use cached context if provided, otherwise fetch fresh
+    const taxonomy = cachedContext?.taxonomy || await getTaxonomy();
+    const entities = cachedContext?.entities || await getEntities();
 
     const entityList = entities
       .map((e) => `- ${e.name} (${e.type})${e.aliases.length ? ` [aliases: ${e.aliases.join(", ")}]` : ""}`)
@@ -205,8 +200,8 @@ Rules:
 - Keep summary concise and factual
 - If unsure about category, use CULTURE as default`;
 
-    // Call Claude with retry
-    const responseText = await callClaudeWithRetry(prompt, context);
+    // Call Gemini with retry
+    const responseText = await callGeminiWithRetry(prompt, context);
 
     // Parse response
     const parsed = parseAnalysisResponse(responseText, context);
@@ -269,7 +264,10 @@ Rules:
  * - Sets aiStatus to 'failed' after MAX_AI_RETRIES
  * - Stores error message in aiError
  */
-export async function analyzeAndUpdateLink(linkId: string): Promise<boolean> {
+export async function analyzeAndUpdateLink(
+  linkId: string,
+  cachedContext?: { taxonomy: string; entities: Array<{ id: string; name: string; aliases: string[]; type: string }> }
+): Promise<boolean> {
   const context = { service: "analyze", operation: "analyzeAndUpdateLink", linkId };
 
   try {
@@ -298,7 +296,8 @@ export async function analyzeAndUpdateLink(linkId: string): Promise<boolean> {
       link.canonicalUrl,
       link.title,
       link.description,
-      linkId
+      linkId,
+      cachedContext
     );
 
     if (!result) {
@@ -398,17 +397,49 @@ export async function analyzeAndUpdateLink(linkId: string): Promise<boolean> {
 }
 
 /**
- * Batch analyze unanalyzed links (for cron job)
- *
- * Only processes links with aiStatus='pending' that haven't exceeded retries.
- * Each link is processed independently - failures don't stop the batch.
+ * Process a chunk of links in parallel
  */
-export async function analyzeUnanalyzedLinks(limit = 10): Promise<{
+async function processChunk(
+  links: Array<{ id: string }>,
+  cachedContext: { taxonomy: string; entities: Array<{ id: string; name: string; aliases: string[]; type: string }> }
+): Promise<{ analyzed: number; failed: number }> {
+  const results = await Promise.allSettled(
+    links.map((link) => analyzeAndUpdateLink(link.id, cachedContext))
+  );
+
+  let analyzed = 0;
+  let failed = 0;
+
+  for (const result of results) {
+    if (result.status === "fulfilled" && result.value) {
+      analyzed++;
+    } else {
+      failed++;
+    }
+  }
+
+  return { analyzed, failed };
+}
+
+/**
+ * Batch analyze unanalyzed links with parallel processing
+ *
+ * Uses Gemini's high rate limits to process multiple links concurrently.
+ * Pre-caches taxonomy and entities to avoid redundant DB queries.
+ */
+export async function analyzeUnanalyzedLinks(limit = 100): Promise<{
   analyzed: number;
   failed: number;
   skipped: number;
 }> {
   const op = log.operationStart("analyze", "analyzeUnanalyzedLinks", { limit });
+
+  // Pre-cache taxonomy and entities once
+  const [taxonomy, entities] = await Promise.all([
+    getTaxonomy(),
+    getEntities(),
+  ]);
+  const cachedContext = { taxonomy, entities };
 
   const links = await prisma.link.findMany({
     where: {
@@ -418,46 +449,50 @@ export async function analyzeUnanalyzedLinks(limit = 10): Promise<{
     },
     orderBy: { createdAt: "desc" },
     take: limit,
+    select: { id: true, title: true },
   });
 
-  let analyzed = 0;
-  let failed = 0;
-  let skipped = 0;
+  // Filter out any without titles (shouldn't happen, but safety check)
+  const validLinks = links.filter((l) => l.title);
+  const skipped = links.length - validLinks.length;
 
-  for (const link of links) {
-    // Skip if no title (shouldn't happen with query, but double-check)
-    if (!link.title) {
-      skipped++;
-      continue;
-    }
+  if (validLinks.length === 0) {
+    op.end({ analyzed: 0, failed: 0, skipped });
+    return { analyzed: 0, failed: 0, skipped };
+  }
 
-    try {
-      const success = await analyzeAndUpdateLink(link.id);
-      if (success) {
-        analyzed++;
-      } else {
-        failed++;
-      }
-    } catch {
-      // analyzeAndUpdateLink should never throw, but just in case
-      failed++;
-    }
+  // Process in parallel chunks
+  let totalAnalyzed = 0;
+  let totalFailed = 0;
 
-    // Delay between requests to avoid rate limiting
-    if (links.indexOf(link) < links.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+  for (let i = 0; i < validLinks.length; i += PARALLEL_CONCURRENCY) {
+    const chunk = validLinks.slice(i, i + PARALLEL_CONCURRENCY);
+    const { analyzed, failed } = await processChunk(chunk, cachedContext);
+    totalAnalyzed += analyzed;
+    totalFailed += failed;
+
+    // Log progress for large batches
+    if (validLinks.length > PARALLEL_CONCURRENCY) {
+      log.info("Batch progress", {
+        service: "analyze",
+        operation: "analyzeUnanalyzedLinks",
+        processed: i + chunk.length,
+        total: validLinks.length,
+        analyzed: totalAnalyzed,
+        failed: totalFailed,
+      });
     }
   }
 
   log.batchSummary("analyze", "analyzeUnanalyzedLinks", {
-    total: links.length,
-    succeeded: analyzed,
-    failed,
+    total: validLinks.length,
+    succeeded: totalAnalyzed,
+    failed: totalFailed,
   }, { skipped });
 
-  op.end({ analyzed, failed, skipped });
+  op.end({ analyzed: totalAnalyzed, failed: totalFailed, skipped });
 
-  return { analyzed, failed, skipped };
+  return { analyzed: totalAnalyzed, failed: totalFailed, skipped };
 }
 
 /**
@@ -465,12 +500,19 @@ export async function analyzeUnanalyzedLinks(limit = 10): Promise<{
  *
  * Re-attempts links that failed but haven't exceeded max retries.
  */
-export async function retryFailedAnalyses(limit = 5): Promise<{
+export async function retryFailedAnalyses(limit = 50): Promise<{
   retried: number;
   succeeded: number;
   failed: number;
 }> {
   const op = log.operationStart("analyze", "retryFailedAnalyses", { limit });
+
+  // Pre-cache taxonomy and entities
+  const [taxonomy, entities] = await Promise.all([
+    getTaxonomy(),
+    getEntities(),
+  ]);
+  const cachedContext = { taxonomy, entities };
 
   // Find links that failed but can still be retried
   const links = await prisma.link.findMany({
@@ -481,24 +523,16 @@ export async function retryFailedAnalyses(limit = 5): Promise<{
     },
     orderBy: { aiRetryCount: "asc" }, // Prioritize fewer retries
     take: limit,
+    select: { id: true },
   });
 
-  let succeeded = 0;
-  let failed = 0;
-
-  for (const link of links) {
-    const success = await analyzeAndUpdateLink(link.id);
-    if (success) {
-      succeeded++;
-    } else {
-      failed++;
-    }
-
-    // Longer delay for retries
-    if (links.indexOf(link) < links.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
+  if (links.length === 0) {
+    op.end({ retried: 0, succeeded: 0, failed: 0 });
+    return { retried: 0, succeeded: 0, failed: 0 };
   }
+
+  // Process in parallel
+  const { analyzed: succeeded, failed } = await processChunk(links, cachedContext);
 
   op.end({ retried: links.length, succeeded, failed });
 

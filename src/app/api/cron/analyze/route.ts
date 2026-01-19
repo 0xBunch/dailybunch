@@ -1,16 +1,16 @@
 /**
  * AI Analysis Cron Endpoint
  *
- * Processes unanalyzed links through Claude for:
+ * Processes unanalyzed links through Gemini Flash for:
  * - Category classification
  * - Entity extraction
  * - Summary generation
  *
  * Protected by CRON_SECRET header.
- * Recommended: Run every 5-10 minutes via Railway cron or external scheduler.
+ * With Gemini's high rate limits, can process 100+ links per run.
  *
  * Error Handling:
- * - Uses retry logic for Claude API calls
+ * - Uses retry logic for Gemini API calls
  * - Tracks aiStatus and aiRetryCount in database
  * - Structured logging for monitoring
  * - Also supports retrying failed analyses
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   try {
     // Get parameters from query string
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "10", 10);
+    const limit = parseInt(searchParams.get("limit") || "100", 10);
     const mode = searchParams.get("mode") || "new"; // "new" or "retry"
 
     log.info("Starting AI analysis cron", {

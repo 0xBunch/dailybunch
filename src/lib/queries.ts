@@ -83,11 +83,12 @@ export async function getVelocityLinks(options: VelocityQueryOptions): Promise<V
       ARRAY_AGG(DISTINCT s.name) FILTER (WHERE s.name IS NOT NULL) as "sourceNames"
     FROM "Link" l
     LEFT JOIN "Mention" m ON m."linkId" = l.id
-    LEFT JOIN "Source" s ON m."sourceId" = s.id
+    LEFT JOIN "Source" s ON m."sourceId" = s.id AND s."showOnDashboard" = true
     LEFT JOIN "Category" c ON l."categoryId" = c.id
     LEFT JOIN "Subcategory" sc ON l."subcategoryId" = sc.id
     WHERE ${filterConditions}
     GROUP BY l.id, c.name, c.slug, sc.name
+    HAVING COUNT(DISTINCT m.id) > 0
     ORDER BY velocity DESC, l."firstSeenAt" DESC
     LIMIT $${params.length}
     `,

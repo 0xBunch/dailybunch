@@ -59,6 +59,7 @@ model Source {
 
   // Link behavior
   includeOwnLinks    Boolean   @default(false) // false = only scrape external links, true = include source's own articles
+  showOnDashboard    Boolean   @default(true)  // false = hide from dashboard trending, still visible on /links
 
   category      Category?    @relation(fields: [categoryId], references: [id])
   mentions      Mention[]

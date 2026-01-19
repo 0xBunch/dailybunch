@@ -102,9 +102,8 @@ export default async function SourcesAdminPage() {
         </form>
 
         <p className="text-sm text-neutral-500 mb-6">
-          Toggle &quot;Own Links&quot; to control whether a source&apos;s own
-          articles appear on the scoreboard (ON) or only external links they
-          reference (OFF).
+          <strong>Dashboard:</strong> Hide low-quality sources from trending view.{" "}
+          <strong>Own Links:</strong> Control whether source&apos;s own articles appear (ON) or only external links (OFF).
         </p>
 
         <div className="space-y-4">
@@ -130,6 +129,28 @@ export default async function SourcesAdminPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-4">
+                  <form
+                    action={`/api/admin/sources/${source.id}`}
+                    method="POST"
+                  >
+                    <input
+                      type="hidden"
+                      name="showOnDashboard"
+                      value={source.showOnDashboard ? "false" : "true"}
+                    />
+                    <button
+                      type="submit"
+                      className={`text-xs px-3 py-1 ${
+                        source.showOnDashboard
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {source.showOnDashboard
+                        ? "Dashboard: ON"
+                        : "Dashboard: OFF"}
+                    </button>
+                  </form>
                   <form
                     action={`/api/admin/sources/${source.id}`}
                     method="POST"

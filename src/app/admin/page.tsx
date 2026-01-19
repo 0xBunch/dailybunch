@@ -125,14 +125,16 @@ export default async function AdminPage() {
                 Trigger RSS Poll
               </button>
             </form>
-            <form action="/api/cron/analyze" method="POST">
-              <button
-                type="submit"
-                className="text-sm bg-neutral-100 px-4 py-2 hover:bg-neutral-200"
-              >
-                Run AI Analysis ({unanalyzedCount} pending)
-              </button>
-            </form>
+{unanalyzedCount > 0 && (
+              <form action="/api/admin/analyze-all" method="POST">
+                <button
+                  type="submit"
+                  className="text-sm bg-blue-100 text-blue-800 px-4 py-2 hover:bg-blue-200"
+                >
+                  Analyze All ({unanalyzedCount} pending)
+                </button>
+              </form>
+            )}
             {untitledCount > 0 && (
               <form action="/api/admin/links/refetch-titles" method="POST">
                 <button
