@@ -108,13 +108,13 @@ export default async function LinksPage({
       {/* Header */}
       <header className="border-b border-neutral-200 px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="font-serif text-2xl">Daily Bunch</h1>
+          <Link href="/" className="font-serif text-2xl hover:text-neutral-700">Daily Bunch</Link>
           <nav className="flex gap-6 text-sm">
-            <Link href="/dashboard" className="text-neutral-600 hover:text-neutral-900">
-              Scoreboard
-            </Link>
             <Link href="/links" className="font-medium underline underline-offset-4">
-              All Links
+              Home
+            </Link>
+            <Link href="/dashboard" className="text-neutral-600 hover:text-neutral-900">
+              Feed
             </Link>
             <Link href="/links/new" className="text-neutral-600 hover:text-neutral-900">
               Add Link
