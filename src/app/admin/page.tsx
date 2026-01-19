@@ -11,13 +11,14 @@ export const dynamic = 'force-dynamic';
 
 export default async function AdminPage() {
   // Get counts for overview
-  const [linkCount, sourceCount, entityCount, pendingSuggestions, unanalyzedCount] =
+  const [linkCount, sourceCount, entityCount, pendingSuggestions, unanalyzedCount, untitledCount] =
     await Promise.all([
       prisma.link.count(),
       prisma.source.count({ where: { active: true } }),
       prisma.entity.count({ where: { active: true } }),
       prisma.entitySuggestion.count({ where: { status: "pending" } }),
       prisma.link.count({ where: { aiAnalyzedAt: null, title: { not: null } } }),
+      prisma.link.count({ where: { title: null } }),
     ]);
 
   return (
@@ -47,7 +48,7 @@ export default async function AdminPage() {
         <h2 className="font-serif text-3xl mb-8">Admin</h2>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-5 gap-6 mb-12">
           <div className="border border-neutral-200 p-4">
             <p className="text-3xl font-serif">{linkCount.toLocaleString()}</p>
             <p className="text-sm text-neutral-500">Total Links</p>
@@ -63,6 +64,10 @@ export default async function AdminPage() {
           <div className="border border-neutral-200 p-4">
             <p className="text-3xl font-serif">{unanalyzedCount}</p>
             <p className="text-sm text-neutral-500">Pending AI Analysis</p>
+          </div>
+          <div className="border border-neutral-200 p-4">
+            <p className="text-3xl font-serif">{untitledCount}</p>
+            <p className="text-sm text-neutral-500">Untitled Links</p>
           </div>
         </div>
 
@@ -111,7 +116,7 @@ export default async function AdminPage() {
         {/* Quick Actions */}
         <div className="mt-12 pt-8 border-t border-neutral-200">
           <h3 className="font-medium mb-4">Quick Actions</h3>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <form action="/api/ingest/poll" method="POST">
               <button
                 type="submit"
@@ -126,6 +131,24 @@ export default async function AdminPage() {
                 className="text-sm bg-neutral-100 px-4 py-2 hover:bg-neutral-200"
               >
                 Run AI Analysis ({unanalyzedCount} pending)
+              </button>
+            </form>
+            {untitledCount > 0 && (
+              <form action="/api/admin/links/refetch-titles" method="POST">
+                <button
+                  type="submit"
+                  className="text-sm bg-neutral-100 px-4 py-2 hover:bg-neutral-200"
+                >
+                  Refetch Titles ({untitledCount} untitled)
+                </button>
+              </form>
+            )}
+            <form action="/api/admin/links/cleanup" method="POST">
+              <button
+                type="submit"
+                className="text-sm bg-red-100 text-red-800 px-4 py-2 hover:bg-red-200"
+              >
+                Purge Source-Domain Links
               </button>
             </form>
           </div>

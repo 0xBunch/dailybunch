@@ -37,7 +37,8 @@ export async function getVelocityLinks(options: VelocityQueryOptions): Promise<V
   const { timeFilter, limit = 100, categorySlug, entityId } = options;
 
   // Build dynamic SQL based on filters
-  let filterConditions = `l."firstSeenAt" >= $1 AND l.title IS NOT NULL`;
+  // Exclude null and empty titles - these show as "Untitled" in the UI
+  let filterConditions = `l."firstSeenAt" >= $1 AND l.title IS NOT NULL AND l.title != ''`;
   const params: (Date | string | number)[] = [timeFilter];
 
   if (categorySlug) {

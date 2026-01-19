@@ -16,7 +16,29 @@ import { fetchMultipleFeeds } from "@/lib/rss";
 import { canonicalizeUrl } from "@/lib/canonicalize";
 import { log } from "@/lib/logger";
 
-// Extract domain from URL, normalizing www prefix
+// Extract base domain from URL (e.g., "kottke.org" from "feeds.kottke.org")
+function getBaseDomain(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    // Split into parts and take last 2 (or 3 for co.uk, com.au, etc.)
+    const parts = hostname.split(".");
+    if (parts.length <= 2) {
+      return hostname.replace(/^www\./, "");
+    }
+    // Check for two-part TLDs like .co.uk, .com.au
+    const twoPartTlds = ["co.uk", "com.au", "co.nz", "com.br", "co.jp"];
+    const lastTwo = parts.slice(-2).join(".");
+    if (twoPartTlds.includes(lastTwo)) {
+      return parts.slice(-3).join(".");
+    }
+    return parts.slice(-2).join(".");
+  } catch {
+    return null;
+  }
+}
+
+// Extract full domain from URL, normalizing www prefix
 function getDomainFromUrl(url: string): string | null {
   try {
     const parsed = new URL(url);
@@ -167,6 +189,7 @@ export async function POST(request: NextRequest) {
   });
 
   // Filter sources with valid URLs and include settings
+  // Use getBaseDomain to match source domain (e.g., "feeds.kottke.org" → "kottke.org")
   const validSources = sources
     .filter((s) => s.url)
     .map((s) => ({
@@ -174,7 +197,7 @@ export async function POST(request: NextRequest) {
       name: s.name,
       url: s.url!,
       includeOwnLinks: s.includeOwnLinks,
-      domain: getDomainFromUrl(s.url!),
+      baseDomain: getBaseDomain(s.url!),
     }));
 
   // Fetch all feeds in parallel with retry logic
@@ -259,14 +282,15 @@ export async function POST(request: NextRequest) {
       // The RSS item URL is stored as a SourceItem, not a Link
       // Links are the external articles that sources mention
       for (const contentLink of item.contentLinks) {
-        const linkDomain = getDomainFromUrl(contentLink);
+        // Compare base domains (e.g., "kottke.org" matches both "kottke.org" and "feeds.kottke.org")
+        const linkBaseDomain = getBaseDomain(contentLink);
 
         // Skip own-domain links if includeOwnLinks is false
         if (
           !source.includeOwnLinks &&
-          linkDomain &&
-          source.domain &&
-          linkDomain === source.domain
+          linkBaseDomain &&
+          source.baseDomain &&
+          linkBaseDomain === source.baseDomain
         ) {
           continue;
         }
