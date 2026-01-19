@@ -19,7 +19,7 @@ import { Errors, ServiceError, wrapError } from "./errors";
 import { log } from "./logger";
 import { withRetry, RetryPresets } from "./retry";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 // Max retries before marking as failed
