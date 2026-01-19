@@ -23,7 +23,7 @@ export default async function DigestsPage() {
       {/* Header */}
       <header className="border-b border-neutral-200 px-6 py-4">
         <div className="flex items-center justify-between">
-          <Link href="/" className="font-serif text-2xl hover:text-neutral-700">Daily Bunch</Link>
+          <h1><Link href="/" className="text-2xl hover:text-neutral-700 no-underline">Daily Bunch</Link></h1>
           <nav className="flex gap-6 text-sm">
             <Link href="/links" className="text-neutral-600 hover:text-neutral-900">
               Home
