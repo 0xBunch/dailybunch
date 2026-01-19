@@ -40,7 +40,13 @@ A cultural signal intelligence platform that surfaces what's traveling across th
 
 ## Features
 
-### Scoreboard Dashboard (`/dashboard`)
+### Home (`/links`)
+- Browse all ingested links with search
+- Filter by category, source, sort by newest/oldest/velocity
+- Pagination for large datasets
+- Clean, editorial presentation
+
+### Feed (`/dashboard`)
 - Links ranked by velocity (number of sources that mentioned them)
 - Filter by category, entity, and time range (24h, 48h, 7d)
 - AI-generated summaries for each link
@@ -51,12 +57,8 @@ A cultural signal intelligence platform that surfaces what's traveling across th
 - Toggle "Include Own Links" per source:
   - **OFF** (default): Only scrape external links the source mentions
   - **ON**: Include the source's own articles on the scoreboard
+- Toggle "Show on Dashboard" to include/exclude sources from Feed view
 - Track fetch errors and consecutive failures
-
-### Link Browser (`/links`)
-- Browse all ingested links with search
-- Filter by category, source, sort by newest/oldest/velocity
-- Pagination for large datasets
 
 ### Digest Builder (`/digests`)
 - Create curated digests from selected links
@@ -76,7 +78,7 @@ A cultural signal intelligence platform that surfaces what's traveling across th
 | Database | PostgreSQL via Prisma |
 | Hosting | Railway |
 | Email Delivery | Resend |
-| AI Analysis | Anthropic Claude |
+| AI Analysis | Google Gemini Flash |
 | Link Unwrapping | Firecrawl |
 | Styling | Tailwind CSS v4 |
 
