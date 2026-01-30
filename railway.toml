@@ -8,3 +8,19 @@ healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+
+# Cron jobs for auto-updating content
+[[crons]]
+name = "rss-poll"
+schedule = "*/15 * * * *"
+endpoint = "/api/ingest/poll"
+
+[[crons]]
+name = "enrich-links"
+schedule = "*/5 * * * *"
+endpoint = "/api/cron/enrich"
+
+[[crons]]
+name = "analyze-links"
+schedule = "*/10 * * * *"
+endpoint = "/api/cron/analyze"
