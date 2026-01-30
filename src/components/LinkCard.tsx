@@ -56,7 +56,7 @@ export function LinkCard({
   });
   return (
     <article
-      className="py-4 last:border-b-0"
+      className="py-3 md:py-4 last:border-b-0"
       style={{ borderBottom: "1px solid var(--border)" }}
     >
       <div className="flex items-start gap-3">
@@ -92,7 +92,7 @@ export function LinkCard({
           </div>
 
           {/* Title (serif) */}
-          <h3 className="font-serif text-lg leading-tight mb-1">
+          <h3 className="font-serif text-base md:text-lg leading-tight mb-1">
             <a
               href={canonicalUrl}
               target="_blank"

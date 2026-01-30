@@ -16,21 +16,21 @@ interface StatsTickerProps {
 export function StatsTicker({ stats }: StatsTickerProps) {
   return (
     <div
-      className="border-b px-6 py-3"
+      className="border-b px-4 py-2 md:px-6 md:py-3"
       style={{ borderColor: "var(--border)", background: "var(--ink)" }}
     >
-      <div className="max-w-6xl mx-auto flex items-center gap-8">
+      <div className="max-w-6xl mx-auto flex items-center gap-4 md:gap-8">
         {stats.map((stat, index) => (
-          <div key={stat.label} className="flex items-center gap-8">
+          <div key={stat.label} className="flex items-center gap-4 md:gap-8">
             {index > 0 && (
               <div
-                className="w-px h-6"
+                className="w-px h-4 md:h-6"
                 style={{ background: "rgba(255,255,255,0.2)" }}
               />
             )}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 md:gap-2">
               <span
-                className="text-2xl font-medium tabular-nums"
+                className="text-lg md:text-2xl font-medium tabular-nums"
                 style={{
                   fontFamily: "var(--font-mono)",
                   color: stat.highlight ? "var(--accent-warm)" : "#fff",
@@ -41,7 +41,7 @@ export function StatsTicker({ stats }: StatsTickerProps) {
                   : stat.value}
               </span>
               <span
-                className="text-xs uppercase tracking-wide"
+                className="text-[10px] md:text-xs uppercase tracking-wide"
                 style={{ color: "#888" }}
               >
                 {stat.label}

@@ -153,7 +153,7 @@ export default async function LinksPage({
     <div className="min-h-dvh" style={{ background: "var(--surface-cream)" }}>
       {/* Header */}
       <header
-        className="border-b px-6 py-4"
+        className="border-b px-4 py-3 md:px-6 md:py-4"
         style={{ borderColor: "var(--border)" }}
       >
         <div className="flex items-center justify-between">
@@ -342,7 +342,7 @@ export default async function LinksPage({
         </FilterSidebar>
 
         {/* Main content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 md:p-6">
           {/* Trending Section */}
           {trendingLinks.length > 0 && !params.q && !params.source && (
             <TrendingSection links={trendingLinks} />

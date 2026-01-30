@@ -73,7 +73,7 @@ export default async function FeedPage({
     <div className="min-h-dvh" style={{ background: "var(--surface-cream)" }}>
       {/* Header */}
       <header
-        className="border-b px-6 py-4"
+        className="border-b px-4 py-3 md:px-6 md:py-4"
         style={{ borderColor: "var(--border)" }}
       >
         <div className="flex items-center justify-between">
@@ -140,7 +140,7 @@ export default async function FeedPage({
 
       {/* Category Pills */}
       <div
-        className="border-b px-6 py-3 overflow-x-auto"
+        className="border-b px-4 py-2 md:px-6 md:py-3 overflow-x-auto"
         style={{ borderColor: "var(--border)" }}
       >
         <div className="flex items-center gap-2">
@@ -238,7 +238,7 @@ export default async function FeedPage({
         </FilterSidebar>
 
         {/* Main content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 md:p-6">
           {/* Trending Section */}
           {trendingLinks.length > 0 && (
             <TrendingSection links={trendingLinks} />
