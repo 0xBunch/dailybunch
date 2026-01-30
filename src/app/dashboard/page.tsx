@@ -1,23 +1,25 @@
 /**
  * Feed Page
  *
- * Raw velocity-ranked links from visible sources.
- * Uses optimized raw SQL query (~150ms vs 1700ms with Prisma includes).
+ * Velocity-ranked links with trending section.
+ * Editorial control room aesthetic.
  */
 
 import prisma from "@/lib/db";
-import { getVelocityLinks, getLinkEntities } from "@/lib/queries";
+import { getVelocityLinks, getTrendingLinks, getLinkEntities } from "@/lib/queries";
 import { LinkCard } from "@/components/LinkCard";
+import { StatsTicker } from "@/components/StatsTicker";
+import { TrendingSection } from "@/components/TrendingSection";
 import Link from "next/link";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 interface SearchParams {
   category?: string;
   entity?: string;
 }
 
-export default async function ScoreboardPage({
+export default async function FeedPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
@@ -27,10 +29,26 @@ export default async function ScoreboardPage({
   // Default to 7 days of data
   const timeFilter = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  // Get categories and entities for filters (parallel)
-  const [categories, entities] = await Promise.all([
+  // Get stats and filters (parallel)
+  const [
+    totalLinks,
+    activeSourceCount,
+    recentLinks,
+    categories,
+    entities,
+    trendingLinks,
+  ] = await Promise.all([
+    prisma.link.count(),
+    prisma.source.count({ where: { active: true } }),
+    prisma.link.count({
+      where: { firstSeenAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+    }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.entity.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    getTrendingLinks({
+      limit: 5,
+      categorySlug: params.category || undefined,
+    }),
   ]);
 
   // Get velocity-ranked links using optimized query
@@ -51,63 +69,125 @@ export default async function ScoreboardPage({
   }));
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-dvh" style={{ background: "var(--surface-cream)" }}>
       {/* Header */}
-      <header className="border-b border-neutral-200 px-6 py-4">
+      <header
+        className="border-b px-6 py-4"
+        style={{ borderColor: "var(--border)" }}
+      >
         <div className="flex items-center justify-between">
-          <h1><Link href="/" className="text-2xl hover:text-neutral-700 !text-neutral-900 !no-underline">Daily Bunch</Link></h1>
+          <h1>
+            <Link
+              href="/"
+              className="text-2xl hover:opacity-70 transition-opacity"
+              style={{ color: "var(--ink)", textDecoration: "none" }}
+            >
+              Daily Bunch
+            </Link>
+          </h1>
           <nav className="flex gap-6 text-sm" aria-label="Main navigation">
-            <Link href="/links" className="text-neutral-600 hover:text-neutral-900">
+            <Link
+              href="/links"
+              className="hover:opacity-70 transition-opacity"
+              style={{ color: "var(--muted)", textDecoration: "none" }}
+            >
               Home
             </Link>
-            <Link href="/dashboard" className="font-medium underline underline-offset-4" aria-current="page">
+            <Link
+              href="/dashboard"
+              className="font-medium"
+              style={{
+                color: "var(--ink)",
+                textDecoration: "underline",
+                textUnderlineOffset: "4px",
+              }}
+              aria-current="page"
+            >
               Feed
             </Link>
-            <Link href="/digests" className="text-neutral-600 hover:text-neutral-900">
+            <Link
+              href="/digests"
+              className="hover:opacity-70 transition-opacity"
+              style={{ color: "var(--muted)", textDecoration: "none" }}
+            >
               Digests
             </Link>
-            <Link href="/weekly-review" className="text-neutral-600 hover:text-neutral-900">
-              Weekly Review
-            </Link>
-            <Link href="/admin" className="text-neutral-600 hover:text-neutral-900">
+            <Link
+              href="/admin"
+              className="hover:opacity-70 transition-opacity"
+              style={{ color: "var(--muted)", textDecoration: "none" }}
+            >
               Admin
             </Link>
           </nav>
         </div>
       </header>
 
+      {/* Stats Ticker */}
+      <StatsTicker
+        stats={[
+          { value: totalLinks, label: "Links" },
+          { value: activeSourceCount, label: "Sources" },
+          { value: `+${recentLinks}`, label: "24h" },
+          {
+            value: trendingLinks.length,
+            label: "Trending",
+            highlight: trendingLinks.length > 0,
+          },
+        ]}
+      />
+
+      {/* Category Pills */}
+      <div
+        className="border-b px-6 py-3 overflow-x-auto"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard"
+            className="shrink-0 px-3 py-1 text-sm transition-opacity hover:opacity-80"
+            style={{
+              background: !params.category ? "var(--ink)" : "transparent",
+              color: !params.category ? "#fff" : "var(--muted)",
+              border: !params.category ? "1px solid var(--ink)" : "1px solid var(--border)",
+              textDecoration: "none",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            All
+          </Link>
+          {categories.map((cat) => (
+            <Link
+              key={cat.id}
+              href={`/dashboard?category=${cat.slug}`}
+              className="shrink-0 px-3 py-1 text-sm transition-opacity hover:opacity-80"
+              style={{
+                background: params.category === cat.slug ? "var(--ink)" : "transparent",
+                color: params.category === cat.slug ? "#fff" : "var(--muted)",
+                border: params.category === cat.slug ? "1px solid var(--ink)" : "1px solid var(--border)",
+                textDecoration: "none",
+                fontFamily: "var(--font-mono)",
+              }}
+            >
+              {cat.name}
+            </Link>
+          ))}
+        </div>
+      </div>
+
       <div className="flex">
         {/* Sidebar filters */}
-        <aside className="w-56 border-r border-neutral-200 p-4 shrink-0">
+        <aside
+          className="w-56 border-r p-4 shrink-0"
+          style={{ borderColor: "var(--border)" }}
+        >
           <form method="GET" className="space-y-6">
-            {/* Category Filter */}
-            <div>
-              <label
-                htmlFor="category-filter"
-                className="block text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2"
-              >
-                Category
-              </label>
-              <select
-                id="category-filter"
-                name="category"
-                defaultValue={params.category || ""}
-                className="w-full text-sm border border-neutral-200 rounded-none px-2 py-1"
-              >
-                <option value="">All categories</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.slug}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             {/* Entity Filter */}
             <div>
               <label
                 htmlFor="entity-filter"
-                className="block text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2"
+                className="block text-xs uppercase tracking-wide mb-2"
+                style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
               >
                 Entity
               </label>
@@ -115,7 +195,11 @@ export default async function ScoreboardPage({
                 id="entity-filter"
                 name="entity"
                 defaultValue={params.entity || ""}
-                className="w-full text-sm border border-neutral-200 rounded-none px-2 py-1"
+                className="w-full text-sm px-2 py-1"
+                style={{
+                  border: "1px solid var(--border)",
+                  background: "#fff",
+                }}
               >
                 <option value="">All entities</option>
                 {entities.map((entity) => (
@@ -126,38 +210,78 @@ export default async function ScoreboardPage({
               </select>
             </div>
 
+            {/* Hidden category input to preserve selection */}
+            {params.category && (
+              <input type="hidden" name="category" value={params.category} />
+            )}
+
             <button
               type="submit"
-              className="w-full bg-neutral-900 text-white text-sm py-2 hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-neutral-900"
+              className="w-full text-sm py-2 transition-opacity hover:opacity-80"
+              style={{
+                background: "var(--ink)",
+                color: "#fff",
+                border: "none",
+              }}
             >
-              Apply Filters
+              Apply Filter
             </button>
+
+            {params.entity && (
+              <Link
+                href={params.category ? `/dashboard?category=${params.category}` : "/dashboard"}
+                className="block text-center text-sm hover:opacity-70 transition-opacity"
+                style={{ color: "var(--muted)", textDecoration: "none" }}
+              >
+                Clear entity filter
+              </Link>
+            )}
           </form>
         </aside>
 
         {/* Main content */}
         <main className="flex-1 p-6">
+          {/* Trending Section */}
+          {trendingLinks.length > 0 && (
+            <TrendingSection links={trendingLinks} />
+          )}
+
+          {/* Feed Header */}
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm text-neutral-600">
-              {linksWithEntities.length} links
-              {params.category && ` in ${params.category}`}
-              {params.entity && ` mentioning selected entity`}
-            </p>
+            <h2
+              className="text-xs uppercase tracking-wide"
+              style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
+            >
+              {params.category ? `${params.category.toUpperCase()} Feed` : "All Links"}
+              <span className="ml-2 tabular-nums">
+                ({linksWithEntities.length})
+              </span>
+            </h2>
           </div>
 
           {linksWithEntities.length === 0 ? (
-            <div className="text-center py-12 text-neutral-500">
-              <p>No links found matching your criteria.</p>
-              <p className="text-sm mt-2">
+            <div
+              className="text-center py-12"
+              style={{ color: "var(--muted)" }}
+            >
+              <p className="mb-2">No links found matching your criteria.</p>
+              <p className="text-sm">
                 Try adjusting filters or{" "}
-                <Link href="/links/new" className="underline">
+                <Link
+                  href="/links/new"
+                  className="hover:opacity-70"
+                  style={{ color: "var(--accent)", textDecoration: "underline" }}
+                >
                   add a link manually
                 </Link>
                 .
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-neutral-200">
+            <div
+              className="divide-y"
+              style={{ borderColor: "var(--border)" }}
+            >
               {linksWithEntities.map((link) => (
                 <LinkCard
                   key={link.id}
@@ -173,6 +297,7 @@ export default async function ScoreboardPage({
                   velocity={link.velocity}
                   sources={link.sourceNames}
                   firstSeenAt={link.firstSeenAt}
+                  isTrending={link.isTrending}
                 />
               ))}
             </div>

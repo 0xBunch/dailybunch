@@ -9,6 +9,7 @@
 import { CategoryBadge } from "./CategoryBadge";
 import { EntityChip } from "./EntityChip";
 import { VelocityIndicator } from "./VelocityIndicator";
+import { TrendingBadge } from "./TrendingBadge";
 import { getDisplayTitle } from "@/lib/title-utils";
 
 interface LinkCardProps {
@@ -18,7 +19,7 @@ interface LinkCardProps {
   canonicalUrl: string;
   domain: string;
   summary?: string | null;
-  category?: { name: string } | null;
+  category?: { name: string; slug?: string } | null;
   subcategory?: { name: string } | null;
   entities: Array<{ entity: { name: string; type: string } }>;
   velocity: number;
@@ -26,6 +27,7 @@ interface LinkCardProps {
   firstSeenAt: Date;
   selected?: boolean;
   onSelect?: (id: string, selected: boolean) => void;
+  isTrending?: boolean;
 }
 
 export function LinkCard({
@@ -43,6 +45,7 @@ export function LinkCard({
   firstSeenAt,
   selected = false,
   onSelect,
+  isTrending = false,
 }: LinkCardProps) {
   // Get display title - never returns empty/null
   const displayTitle = getDisplayTitle({
@@ -52,7 +55,10 @@ export function LinkCard({
     domain,
   });
   return (
-    <article className="border-b border-neutral-200 py-4 last:border-b-0">
+    <article
+      className="py-4 last:border-b-0"
+      style={{ borderBottom: "1px solid var(--border)" }}
+    >
       <div className="flex items-start gap-3">
         {/* Selection checkbox */}
         {onSelect && (
@@ -61,13 +67,18 @@ export function LinkCard({
             checked={selected}
             onChange={(e) => onSelect(id, e.target.checked)}
             aria-label={`Select ${displayTitle.text}`}
-            className="mt-1.5 h-4 w-4 rounded-none border-neutral-300 text-neutral-900"
+            className="mt-1.5 size-4"
+            style={{ accentColor: "var(--ink)" }}
           />
         )}
 
         <div className="flex-1 min-w-0">
-          {/* Header row: category, velocity, date */}
-          <div className="flex items-center gap-3 text-xs text-neutral-500 mb-1">
+          {/* Header row: trending, category, velocity, date */}
+          <div
+            className="flex items-center gap-3 text-xs mb-1"
+            style={{ color: "var(--muted)" }}
+          >
+            {isTrending && <TrendingBadge />}
             {category && (
               <CategoryBadge
                 name={category.name}
@@ -86,18 +97,29 @@ export function LinkCard({
               href={canonicalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className={`hover:underline ${displayTitle.source === "generated" ? "italic text-neutral-700" : ""}`}
+              className="hover:opacity-70 transition-opacity"
+              style={{
+                color: "var(--ink)",
+                textDecoration: "none",
+                fontStyle: displayTitle.source === "generated" ? "italic" : "normal",
+                opacity: displayTitle.source === "generated" ? 0.8 : 1,
+              }}
             >
               {displayTitle.text}
             </a>
           </h3>
 
           {/* Domain */}
-          <p className="text-sm text-neutral-500 mb-2">{domain}</p>
+          <p className="text-sm mb-2" style={{ color: "var(--muted)" }}>
+            {domain}
+          </p>
 
           {/* Summary (if available) */}
           {summary && (
-            <p className="text-sm text-neutral-600 mb-2 line-clamp-2">
+            <p
+              className="text-sm mb-2 line-clamp-2"
+              style={{ color: "var(--muted)" }}
+            >
               {summary}
             </p>
           )}

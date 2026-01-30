@@ -107,6 +107,9 @@ async function main() {
   console.log("Creating sources...");
 
   const sources = [
+    // ============================================
+    // EXISTING SOURCES
+    // ============================================
     {
       name: "Morning Brew",
       type: "newsletter",
@@ -153,6 +156,122 @@ async function main() {
       name: "Why is this interesting?",
       type: "newsletter",
       emailTrigger: "whyistheinteresting.substack.com",
+      categoryId: culture.id,
+    },
+
+    // ============================================
+    // NEW SOURCES - AI / TECH
+    // ============================================
+    {
+      name: "Ben's Bites",
+      type: "rss",
+      url: "https://bensbites.beehiiv.com/feed",
+      categoryId: ai.id,
+    },
+    {
+      name: "The Rundown AI",
+      type: "rss",
+      url: "https://www.therundown.ai/feed",
+      categoryId: ai.id,
+    },
+    {
+      name: "Import AI",
+      type: "rss",
+      url: "https://importai.substack.com/feed",
+      categoryId: ai.id,
+    },
+    {
+      name: "Platformer",
+      type: "rss",
+      url: "https://www.platformer.news/feed",
+      categoryId: ai.id,
+    },
+
+    // ============================================
+    // NEW SOURCES - TECH / BUSINESS
+    // ============================================
+    {
+      name: "Daring Fireball",
+      type: "rss",
+      url: "https://daringfireball.net/feeds/main",
+      categoryId: business.id,
+    },
+    {
+      name: "Techmeme",
+      type: "rss",
+      url: "https://www.techmeme.com/feed.xml",
+      categoryId: business.id,
+    },
+    {
+      name: "Hacker News",
+      type: "rss",
+      url: "https://hnrss.org/frontpage",
+      categoryId: business.id,
+    },
+    {
+      name: "Big Technology",
+      type: "rss",
+      url: "https://www.bigtechnology.com/feed",
+      categoryId: business.id,
+    },
+
+    // ============================================
+    // NEW SOURCES - CULTURE
+    // ============================================
+    {
+      name: "Garbage Day",
+      type: "rss",
+      url: "https://www.garbageday.email/feed",
+      categoryId: culture.id,
+    },
+    {
+      name: "Kottke.org",
+      type: "rss",
+      url: "https://feeds.kottke.org/main",
+      categoryId: culture.id,
+    },
+    {
+      name: "Dirt",
+      type: "rss",
+      url: "https://dirt.substack.com/feed",
+      categoryId: culture.id,
+    },
+    {
+      name: "Normcore Tech",
+      type: "rss",
+      url: "https://normcore.substack.com/feed",
+      categoryId: culture.id,
+    },
+
+    // ============================================
+    // NEW SOURCES - SPORTS
+    // ============================================
+    {
+      name: "Sportico",
+      type: "rss",
+      url: "https://www.sportico.com/feed/",
+      categoryId: sports.id,
+    },
+    {
+      name: "Defector",
+      type: "rss",
+      url: "https://defector.com/feed",
+      categoryId: sports.id,
+    },
+
+    // ============================================
+    // NEW SOURCES - LINK AGGREGATORS
+    // ============================================
+    {
+      name: "Waxy Links",
+      type: "rss",
+      url: "https://waxy.org/feed/",
+      categoryId: culture.id,
+    },
+    {
+      name: "The Browser",
+      type: "rss",
+      url: "https://thebrowser.com/feed/",
       categoryId: culture.id,
     },
   ];

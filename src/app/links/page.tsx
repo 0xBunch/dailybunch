@@ -1,15 +1,18 @@
 /**
- * Link Browser Page
+ * Link Browser Page (Homepage)
  *
- * Browse ALL ingested links (not just trending).
- * Search, filter, sort with pagination.
+ * Editorial control room aesthetic with trending section.
+ * Shows what tastemakers are collectively pointing at.
  */
 
 import prisma from "@/lib/db";
+import { getTrendingLinks, getVelocityLinks } from "@/lib/queries";
 import { LinkCard } from "@/components/LinkCard";
+import { StatsTicker } from "@/components/StatsTicker";
+import { TrendingSection } from "@/components/TrendingSection";
 import Link from "next/link";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 interface SearchParams {
   q?: string;
@@ -28,16 +31,35 @@ export default async function LinksPage({
 }) {
   const params = await searchParams;
   const currentPage = parseInt(params.page || "1", 10);
-  const sort = params.sort || "newest";
+  const sort = params.sort || "velocity";
 
-  // Get filter options
-  const categories = await prisma.category.findMany({ orderBy: { name: "asc" } });
-  const sources = await prisma.source.findMany({
-    where: { active: true },
-    orderBy: { name: "asc" },
+  // Get stats for ticker
+  const [
+    totalLinks,
+    activeSourceCount,
+    recentLinks,
+    categories,
+    sources,
+  ] = await Promise.all([
+    prisma.link.count(),
+    prisma.source.count({ where: { active: true } }),
+    prisma.link.count({
+      where: { firstSeenAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+    }),
+    prisma.category.findMany({ orderBy: { name: "asc" } }),
+    prisma.source.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  // Get trending links (2+ sources with recent activity)
+  const trendingLinks = await getTrendingLinks({
+    limit: 5,
+    categorySlug: params.category || undefined,
   });
 
-  // Build where clause
+  // Build where clause for regular links
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const whereClause: any = {};
 
@@ -64,35 +86,57 @@ export default async function LinksPage({
   const totalCount = await prisma.link.count({ where: whereClause });
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  // Get links
-  const links = await prisma.link.findMany({
-    where: whereClause,
-    include: {
-      category: true,
-      subcategory: true,
-      entities: {
-        include: { entity: true },
-      },
-      mentions: {
-        include: { source: true },
-      },
-    },
-    orderBy:
-      sort === "oldest"
-        ? { firstSeenAt: "asc" }
-        : sort === "velocity"
-          ? { mentions: { _count: "desc" } }
-          : { firstSeenAt: "desc" },
-    skip: (currentPage - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
+  // Get links using velocity query for better sorting
+  const timeFilter = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const velocityLinks = await getVelocityLinks({
+    timeFilter,
+    limit: PAGE_SIZE,
+    categorySlug: params.category || undefined,
   });
 
-  // Process links
-  const processedLinks = links.map((link) => ({
-    ...link,
-    velocity: link.mentions.length,
-    sources: [...new Set(link.mentions.map((m) => m.source.name))],
-  }));
+  // For non-velocity sorts, use standard Prisma query
+  let displayLinks = velocityLinks;
+  if (sort !== "velocity" || params.q || params.source) {
+    const links = await prisma.link.findMany({
+      where: whereClause,
+      include: {
+        category: true,
+        subcategory: true,
+        entities: {
+          include: { entity: true },
+        },
+        mentions: {
+          include: { source: true },
+        },
+      },
+      orderBy:
+        sort === "oldest"
+          ? { firstSeenAt: "asc" }
+          : sort === "velocity"
+            ? { mentions: { _count: "desc" } }
+            : { firstSeenAt: "desc" },
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    });
+
+    displayLinks = links.map((link) => ({
+      id: link.id,
+      title: link.title,
+      fallbackTitle: link.fallbackTitle,
+      canonicalUrl: link.canonicalUrl,
+      domain: link.domain,
+      aiSummary: link.aiSummary,
+      firstSeenAt: link.firstSeenAt,
+      categoryName: link.category?.name || null,
+      categorySlug: link.category?.slug || null,
+      subcategoryName: link.subcategory?.name || null,
+      velocity: link.mentions.length,
+      weightedVelocity: link.mentions.length,
+      isTrending: link.mentions.length >= 2,
+      hoursSinceFirstMention: 0,
+      sourceNames: [...new Set(link.mentions.map((m) => m.source.name))],
+    }));
+  }
 
   // Build URL with params
   const buildUrl = (newParams: Partial<SearchParams>) => {
@@ -105,74 +149,140 @@ export default async function LinksPage({
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-dvh" style={{ background: "var(--surface-cream)" }}>
       {/* Header */}
-      <header className="border-b border-neutral-200 px-6 py-4">
+      <header
+        className="border-b px-6 py-4"
+        style={{ borderColor: "var(--border)" }}
+      >
         <div className="flex items-center justify-between">
-          <h1><Link href="/" className="text-2xl hover:text-neutral-700 !text-neutral-900 !no-underline">Daily Bunch</Link></h1>
+          <h1>
+            <Link
+              href="/"
+              className="text-2xl hover:opacity-70 transition-opacity"
+              style={{ color: "var(--ink)", textDecoration: "none" }}
+            >
+              Daily Bunch
+            </Link>
+          </h1>
           <nav className="flex gap-6 text-sm">
-            <Link href="/links" className="font-medium underline underline-offset-4">
+            <Link
+              href="/links"
+              className="font-medium"
+              style={{
+                color: "var(--ink)",
+                textDecoration: "underline",
+                textUnderlineOffset: "4px",
+              }}
+            >
               Home
             </Link>
-            <Link href="/dashboard" className="text-neutral-600 hover:text-neutral-900">
+            <Link
+              href="/dashboard"
+              className="hover:opacity-70 transition-opacity"
+              style={{ color: "var(--muted)", textDecoration: "none" }}
+            >
               Feed
             </Link>
-            <Link href="/digests" className="text-neutral-600 hover:text-neutral-900">
+            <Link
+              href="/digests"
+              className="hover:opacity-70 transition-opacity"
+              style={{ color: "var(--muted)", textDecoration: "none" }}
+            >
               Digests
             </Link>
-            <Link href="/weekly-review" className="text-neutral-600 hover:text-neutral-900">
-              Weekly Review
-            </Link>
-            <Link href="/admin" className="text-neutral-600 hover:text-neutral-900">
+            <Link
+              href="/admin"
+              className="hover:opacity-70 transition-opacity"
+              style={{ color: "var(--muted)", textDecoration: "none" }}
+            >
               Admin
             </Link>
           </nav>
         </div>
       </header>
 
+      {/* Stats Ticker */}
+      <StatsTicker
+        stats={[
+          { value: totalLinks, label: "Links" },
+          { value: activeSourceCount, label: "Sources" },
+          { value: `+${recentLinks}`, label: "24h" },
+          {
+            value: trendingLinks.length,
+            label: "Trending",
+            highlight: trendingLinks.length > 0,
+          },
+        ]}
+      />
+
       <div className="flex">
         {/* Sidebar filters */}
-        <aside className="w-56 border-r border-neutral-200 p-4 shrink-0">
+        <aside
+          className="w-56 border-r p-4 shrink-0"
+          style={{ borderColor: "var(--border)" }}
+        >
           <form method="GET" className="space-y-6">
             {/* Search */}
             <div>
-              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
+              <label
+                className="block text-xs uppercase tracking-wide mb-2"
+                style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
+              >
                 Search
-              </h3>
+              </label>
               <input
                 type="text"
                 name="q"
                 defaultValue={params.q || ""}
                 placeholder="Title, URL, domain..."
-                className="w-full text-sm border border-neutral-200 rounded-none px-2 py-1"
+                className="w-full text-sm px-2 py-1"
+                style={{
+                  border: "1px solid var(--border)",
+                  background: "#fff",
+                }}
               />
             </div>
 
             {/* Sort */}
             <div>
-              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
+              <label
+                className="block text-xs uppercase tracking-wide mb-2"
+                style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
+              >
                 Sort By
-              </h3>
+              </label>
               <select
                 name="sort"
                 defaultValue={sort}
-                className="w-full text-sm border border-neutral-200 rounded-none px-2 py-1"
+                className="w-full text-sm px-2 py-1"
+                style={{
+                  border: "1px solid var(--border)",
+                  background: "#fff",
+                }}
               >
+                <option value="velocity">Most sources</option>
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
-                <option value="velocity">Most sources</option>
               </select>
             </div>
 
             {/* Category Filter */}
             <div>
-              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
+              <label
+                className="block text-xs uppercase tracking-wide mb-2"
+                style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
+              >
                 Category
-              </h3>
+              </label>
               <select
                 name="category"
                 defaultValue={params.category || ""}
-                className="w-full text-sm border border-neutral-200 rounded-none px-2 py-1"
+                className="w-full text-sm px-2 py-1"
+                style={{
+                  border: "1px solid var(--border)",
+                  background: "#fff",
+                }}
               >
                 <option value="">All categories</option>
                 {categories.map((cat) => (
@@ -185,13 +295,20 @@ export default async function LinksPage({
 
             {/* Source Filter */}
             <div>
-              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
+              <label
+                className="block text-xs uppercase tracking-wide mb-2"
+                style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
+              >
                 Source
-              </h3>
+              </label>
               <select
                 name="source"
                 defaultValue={params.source || ""}
-                className="w-full text-sm border border-neutral-200 rounded-none px-2 py-1"
+                className="w-full text-sm px-2 py-1"
+                style={{
+                  border: "1px solid var(--border)",
+                  background: "#fff",
+                }}
               >
                 <option value="">All sources</option>
                 {sources.map((source) => (
@@ -204,7 +321,12 @@ export default async function LinksPage({
 
             <button
               type="submit"
-              className="w-full bg-neutral-900 text-white text-sm py-2 hover:bg-neutral-800"
+              className="w-full text-sm py-2 transition-opacity hover:opacity-80"
+              style={{
+                background: "var(--ink)",
+                color: "#fff",
+                border: "none",
+              }}
             >
               Apply Filters
             </button>
@@ -212,7 +334,8 @@ export default async function LinksPage({
             {(params.q || params.category || params.source) && (
               <Link
                 href="/links"
-                className="block text-center text-sm text-neutral-500 hover:text-neutral-700"
+                className="block text-center text-sm hover:opacity-70 transition-opacity"
+                style={{ color: "var(--muted)", textDecoration: "none" }}
               >
                 Clear filters
               </Link>
@@ -222,21 +345,44 @@ export default async function LinksPage({
 
         {/* Main content */}
         <main className="flex-1 p-6">
+          {/* Trending Section */}
+          {trendingLinks.length > 0 && !params.q && !params.source && (
+            <TrendingSection links={trendingLinks} />
+          )}
+
+          {/* Recent Links Header */}
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm text-neutral-600">
-              {totalCount.toLocaleString()} links total
-              {params.q && ` matching "${params.q}"`}
-            </p>
-            <p className="text-sm text-neutral-500">
-              Page {currentPage} of {totalPages || 1}
-            </p>
+            <h2
+              className="text-xs uppercase tracking-wide"
+              style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
+            >
+              {params.q ? `Search: "${params.q}"` : "Recent Links"}
+              <span className="ml-2 tabular-nums">
+                ({totalCount.toLocaleString()})
+              </span>
+            </h2>
+            {totalPages > 1 && (
+              <span
+                className="text-xs tabular-nums"
+                style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
+              >
+                Page {currentPage} / {totalPages}
+              </span>
+            )}
           </div>
 
-          {processedLinks.length === 0 ? (
-            <div className="text-center py-12 text-neutral-500">
-              <p>No links found.</p>
-              <p className="text-sm mt-2">
-                <Link href="/links/new" className="underline">
+          {displayLinks.length === 0 ? (
+            <div
+              className="text-center py-12"
+              style={{ color: "var(--muted)" }}
+            >
+              <p className="mb-2">No links found.</p>
+              <p className="text-sm">
+                <Link
+                  href="/links/new"
+                  className="hover:opacity-70"
+                  style={{ color: "var(--accent)", textDecoration: "underline" }}
+                >
                   Add a link manually
                 </Link>{" "}
                 or wait for RSS to sync.
@@ -244,8 +390,11 @@ export default async function LinksPage({
             </div>
           ) : (
             <>
-              <div className="divide-y divide-neutral-200">
-                {processedLinks.map((link) => (
+              <div
+                className="divide-y"
+                style={{ borderColor: "var(--border)" }}
+              >
+                {displayLinks.map((link) => (
                   <LinkCard
                     key={link.id}
                     id={link.id}
@@ -254,12 +403,21 @@ export default async function LinksPage({
                     canonicalUrl={link.canonicalUrl}
                     domain={link.domain}
                     summary={link.aiSummary}
-                    category={link.category}
-                    subcategory={link.subcategory}
-                    entities={link.entities}
+                    category={
+                      link.categoryName
+                        ? { name: link.categoryName, slug: link.categorySlug! }
+                        : null
+                    }
+                    subcategory={
+                      link.subcategoryName
+                        ? { name: link.subcategoryName }
+                        : null
+                    }
+                    entities={[]}
                     velocity={link.velocity}
-                    sources={link.sources}
+                    sources={link.sourceNames}
                     firstSeenAt={link.firstSeenAt}
+                    isTrending={link.isTrending}
                   />
                 ))}
               </div>
@@ -270,18 +428,33 @@ export default async function LinksPage({
                   {currentPage > 1 && (
                     <Link
                       href={buildUrl({ page: String(currentPage - 1) })}
-                      className="px-3 py-1 text-sm border border-neutral-200 hover:bg-neutral-50"
+                      className="px-3 py-1 text-sm transition-opacity hover:opacity-70"
+                      style={{
+                        border: "1px solid var(--border)",
+                        background: "#fff",
+                        textDecoration: "none",
+                        color: "var(--ink)",
+                      }}
                     >
                       Previous
                     </Link>
                   )}
-                  <span className="px-3 py-1 text-sm text-neutral-500">
+                  <span
+                    className="px-3 py-1 text-sm tabular-nums"
+                    style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
+                  >
                     {currentPage} / {totalPages}
                   </span>
                   {currentPage < totalPages && (
                     <Link
                       href={buildUrl({ page: String(currentPage + 1) })}
-                      className="px-3 py-1 text-sm border border-neutral-200 hover:bg-neutral-50"
+                      className="px-3 py-1 text-sm transition-opacity hover:opacity-70"
+                      style={{
+                        border: "1px solid var(--border)",
+                        background: "#fff",
+                        textDecoration: "none",
+                        color: "var(--ink)",
+                      }}
                     >
                       Next
                     </Link>
