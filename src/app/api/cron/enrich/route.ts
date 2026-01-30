@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { enrichLink, type LinkToEnrich } from "@/lib/enrich";
+import { isBlockedTitle } from "@/lib/title-utils";
 
 const BATCH_SIZE = 20;
 const MAX_RETRIES = 5;
@@ -23,6 +24,7 @@ interface EnrichmentStats {
   fallback: number;
   failed: number;
   skipped: number;
+  blocked: number;
 }
 
 async function processEnrichmentBatch(): Promise<EnrichmentStats> {
@@ -32,6 +34,7 @@ async function processEnrichmentBatch(): Promise<EnrichmentStats> {
     fallback: 0,
     failed: 0,
     skipped: 0,
+    blocked: 0,
   };
 
   // Get pending links that haven't exceeded retry limit
@@ -65,16 +68,24 @@ async function processEnrichmentBatch(): Promise<EnrichmentStats> {
     stats.processed++;
 
     // Skip if already has a title (shouldn't happen, but safety check)
+    // Also check if existing title is a blocked page
     if (link.title && link.title.trim()) {
+      const blockedReason = isBlockedTitle(link.title);
       await prisma.link.update({
         where: { id: link.id },
         data: {
           enrichmentStatus: "success",
           enrichmentSource: "html",
           enrichmentLastAttempt: new Date(),
+          ...(blockedReason ? { isBlocked: true, blockedReason } : {}),
         },
       });
-      stats.skipped++;
+      if (blockedReason) {
+        stats.blocked++;
+        console.log(`[Enrich Cron] Blocked existing ${link.domain}: ${blockedReason}`);
+      } else {
+        stats.skipped++;
+      }
       continue;
     }
 
@@ -101,20 +112,38 @@ async function processEnrichmentBatch(): Promise<EnrichmentStats> {
 
       // Update database based on result
       if (result.status === "success") {
-        await prisma.link.update({
-          where: { id: link.id },
-          data: {
-            title: result.title,
-            description: result.description || link.description,
-            author: result.author,
-            imageUrl: result.imageUrl,
-            publishedAt: result.publishedAt,
-            enrichmentStatus: "success",
-            enrichmentSource: result.source,
-            enrichmentError: null,
-          },
-        });
-        stats.success++;
+        // Check if the title indicates a blocked page (robot, paywall, 404)
+        const blockedReason = isBlockedTitle(result.title);
+        if (blockedReason) {
+          await prisma.link.update({
+            where: { id: link.id },
+            data: {
+              title: result.title,
+              isBlocked: true,
+              blockedReason,
+              enrichmentStatus: "success",
+              enrichmentSource: result.source,
+              enrichmentError: null,
+            },
+          });
+          stats.blocked++;
+          console.log(`[Enrich Cron] Blocked ${link.domain}: ${blockedReason}`);
+        } else {
+          await prisma.link.update({
+            where: { id: link.id },
+            data: {
+              title: result.title,
+              description: result.description || link.description,
+              author: result.author,
+              imageUrl: result.imageUrl,
+              publishedAt: result.publishedAt,
+              enrichmentStatus: "success",
+              enrichmentSource: result.source,
+              enrichmentError: null,
+            },
+          });
+          stats.success++;
+        }
       } else if (result.status === "fallback") {
         await prisma.link.update({
           where: { id: link.id },
@@ -180,6 +209,7 @@ export async function GET() {
       `[Enrich Cron] Completed in ${duration}ms:`,
       `${stats.success} success,`,
       `${stats.fallback} fallback,`,
+      `${stats.blocked} blocked,`,
       `${stats.failed} failed,`,
       `${stats.skipped} skipped.`,
       `${remainingPending} remaining.`

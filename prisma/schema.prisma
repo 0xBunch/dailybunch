@@ -122,6 +122,10 @@ model Link {
   aiRetryCount      Int       @default(0) // Number of AI analysis retries
   needsManualReview Boolean   @default(false) // Flag for manual review queue
 
+  // Blocked content (robot pages, paywalls, 404s)
+  isBlocked         Boolean   @default(false)
+  blockedReason     String?   // robot | paywall | 404 | access_denied
+
   // Enrichment tracking (multi-tier title extraction)
   enrichmentStatus      String    @default("pending") // pending | processing | success | fallback | failed
   enrichmentRetryCount  Int       @default(0)
@@ -155,6 +159,7 @@ model Link {
   @@index([needsManualReview])
   @@index([enrichmentStatus])
   @@index([enrichmentLastAttempt])
+  @@index([isBlocked])
 }
 
 model Mention {

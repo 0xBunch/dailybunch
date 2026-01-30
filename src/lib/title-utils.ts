@@ -7,6 +7,55 @@
  */
 
 /**
+ * Patterns that indicate a blocked/error page rather than real content.
+ */
+const BLOCKED_TITLE_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
+  { pattern: /are you a robot/i, reason: "robot" },
+  { pattern: /captcha/i, reason: "robot" },
+  { pattern: /access denied/i, reason: "access_denied" },
+  { pattern: /403 forbidden/i, reason: "access_denied" },
+  { pattern: /page not found/i, reason: "404" },
+  { pattern: /404 error/i, reason: "404" },
+  { pattern: /link.*has expired/i, reason: "expired" },
+  { pattern: /subscribe to continue/i, reason: "paywall" },
+  { pattern: /subscription required/i, reason: "paywall" },
+  { pattern: /please log in/i, reason: "paywall" },
+  { pattern: /sign in to continue/i, reason: "paywall" },
+];
+
+/**
+ * Check if a title indicates a blocked/error page.
+ * Returns the block reason if detected, null otherwise.
+ */
+export function isBlockedTitle(title: string | null): string | null {
+  if (!title) return null;
+  for (const { pattern, reason } of BLOCKED_TITLE_PATTERNS) {
+    if (pattern.test(title)) {
+      return reason;
+    }
+  }
+  return null;
+}
+
+/**
+ * Strip publication name suffixes from titles.
+ * "AI Regulation | NYTimes" → "AI Regulation"
+ * "New iPhone - TechCrunch" → "New iPhone"
+ */
+function stripPublicationSuffix(title: string): string {
+  // Strip after pipe (most common)
+  let result = title.split(/\s*\|\s*/)[0];
+
+  // Strip after em-dash or en-dash at end (but not mid-sentence)
+  result = result.replace(/\s+[—–]\s+[^—–]+$/, "");
+
+  // Strip after hyphen at end (only if short suffix, likely publication)
+  result = result.replace(/\s+-\s+[\w\s]{1,25}$/, "");
+
+  return result.trim();
+}
+
+/**
  * Decode common HTML entities to their character equivalents.
  * Handles both named entities (&amp;) and numeric entities (&#8211;).
  */
@@ -53,15 +102,17 @@ export interface DisplayTitleResult {
  * Get a displayable title for a link.
  * Priority: title → fallbackTitle → URL-derived title
  * Never returns empty string or null.
- * Decodes HTML entities for clean display.
+ * Decodes HTML entities and strips publication suffixes for clean display.
  */
 export function getDisplayTitle(link: TitleableLink): DisplayTitleResult {
   if (link.title && link.title.trim()) {
-    return { text: decodeHtmlEntities(link.title.trim()), source: "extracted" };
+    const cleaned = stripPublicationSuffix(decodeHtmlEntities(link.title.trim()));
+    return { text: cleaned, source: "extracted" };
   }
 
   if (link.fallbackTitle && link.fallbackTitle.trim()) {
-    return { text: decodeHtmlEntities(link.fallbackTitle.trim()), source: "fallback" };
+    const cleaned = stripPublicationSuffix(decodeHtmlEntities(link.fallbackTitle.trim()));
+    return { text: cleaned, source: "fallback" };
   }
 
   return {

@@ -48,7 +48,8 @@ export async function getVelocityLinks(options: VelocityQueryOptions): Promise<V
 
   // Build dynamic SQL based on filters
   // Require either title OR fallbackTitle to be present (never show "Untitled")
-  let filterConditions = `l."firstSeenAt" >= $1 AND (
+  // Exclude blocked links (robot pages, paywalls, 404s)
+  let filterConditions = `l."isBlocked" = false AND l."firstSeenAt" >= $1 AND (
     (l.title IS NOT NULL AND l.title != '') OR
     (l."fallbackTitle" IS NOT NULL AND l."fallbackTitle" != '')
   )`;
@@ -166,8 +167,10 @@ export async function getTrendingLinks(options: TrendingQueryOptions = {}): Prom
   const { limit = 10, categorySlug, minVelocity = 2 } = options;
 
   // Build dynamic SQL based on filters
+  // Exclude blocked links (robot pages, paywalls, 404s)
   let filterConditions = `
-    l."firstSeenAt" >= NOW() - INTERVAL '7 days'
+    l."isBlocked" = false
+    AND l."firstSeenAt" >= NOW() - INTERVAL '7 days'
     AND (
       (l.title IS NOT NULL AND l.title != '') OR
       (l."fallbackTitle" IS NOT NULL AND l."fallbackTitle" != '')
