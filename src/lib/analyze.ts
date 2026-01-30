@@ -353,17 +353,27 @@ export async function analyzeAndUpdateLink(
       });
     }
 
-    // Queue suggested entities for approval
+    // Queue suggested entities for approval (de-dupe: skip if pending suggestion exists)
     for (const suggestion of result.suggestedEntities) {
-      await prisma.entitySuggestion.create({
-        data: {
-          name: suggestion.name,
+      const existingSuggestion = await prisma.entitySuggestion.findFirst({
+        where: {
+          name: { equals: suggestion.name, mode: "insensitive" },
           type: suggestion.type,
-          aliases: suggestion.aliases,
-          linkId,
           status: "pending",
         },
       });
+
+      if (!existingSuggestion) {
+        await prisma.entitySuggestion.create({
+          data: {
+            name: suggestion.name,
+            type: suggestion.type,
+            aliases: suggestion.aliases,
+            linkId,
+            status: "pending",
+          },
+        });
+      }
     }
 
     return true;

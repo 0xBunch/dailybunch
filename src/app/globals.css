@@ -8,6 +8,16 @@
   --border: #e5e5e5;
   --font-headline: "Special Gothic Expanded One", "Times New Roman", Times, serif;
   --font-body: "Special Gothic Condensed One", "Times New Roman", Times, serif;
+
+  /* Editorial Control Room palette */
+  --surface-cream: #faf9f7;
+  --ink: #1a1a1a;
+  --accent-warm: #c45d2c;
+  --status-success: #5d7052;
+  --status-warning: #b5872c;
+  --status-error: #a65454;
+  --status-muted: #8b8b8b;
+  --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Monaco, monospace;
 }
 
 body {
