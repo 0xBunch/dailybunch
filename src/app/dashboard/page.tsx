@@ -10,6 +10,7 @@ import { getVelocityLinks, getTrendingLinks, getLinkEntities } from "@/lib/queri
 import { LinkCard } from "@/components/LinkCard";
 import { StatsTicker } from "@/components/StatsTicker";
 import { TrendingSection } from "@/components/TrendingSection";
+import { FilterSidebar } from "@/components/FilterSidebar";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -177,10 +178,7 @@ export default async function FeedPage({
 
       <div className="flex">
         {/* Sidebar filters */}
-        <aside
-          className="w-56 border-r p-4 shrink-0"
-          style={{ borderColor: "var(--border)" }}
-        >
+        <FilterSidebar>
           <form method="GET" className="space-y-6">
             {/* Entity Filter */}
             <div>
@@ -237,7 +235,7 @@ export default async function FeedPage({
               </Link>
             )}
           </form>
-        </aside>
+        </FilterSidebar>
 
         {/* Main content */}
         <main className="flex-1 p-6">
