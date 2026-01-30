@@ -109,6 +109,12 @@ async function processLink(
         ...(result.imageUrl && { imageUrl: result.imageUrl }),
         ...(result.author && { author: result.author }),
         ...(result.publishedAt && { publishedAt: result.publishedAt }),
+        // If we're adding a title where there wasn't one, mark enrichment as success
+        ...(finalTitle && {
+          enrichmentStatus: "success",
+          enrichmentSource: "html",
+          enrichmentLastAttempt: new Date(),
+        }),
       },
       create: {
         canonicalUrl: result.canonicalUrl,
@@ -123,6 +129,11 @@ async function processLink(
         canonicalStatus: result.status,
         canonicalError: result.error || null,
         needsManualReview: result.status === "failed",
+        // Set enrichment status based on title availability
+        // Links with titles are "success", links without go to "pending" for background enrichment
+        enrichmentStatus: finalTitle ? "success" : "pending",
+        enrichmentSource: finalTitle ? "html" : null,
+        enrichmentLastAttempt: finalTitle ? new Date() : null,
       },
     });
 

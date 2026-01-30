@@ -149,7 +149,7 @@ export default function NewLinkPage() {
                 rel="noopener noreferrer"
                 className="hover:underline"
               >
-                {result.link.title || "Untitled"}
+                {result.link.title || result.link.domain}
               </a>
             </h3>
 

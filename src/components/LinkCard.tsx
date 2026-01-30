@@ -3,15 +3,18 @@
  *
  * Displays a single link with all metadata.
  * Lo-fi editorial aesthetic: dense, text-forward, serif headlines.
+ * Never shows "Untitled" - always derives a title from available data.
  */
 
 import { CategoryBadge } from "./CategoryBadge";
 import { EntityChip } from "./EntityChip";
 import { VelocityIndicator } from "./VelocityIndicator";
+import { getDisplayTitle } from "@/lib/title-utils";
 
 interface LinkCardProps {
   id: string;
   title: string | null;
+  fallbackTitle?: string | null;
   canonicalUrl: string;
   domain: string;
   summary?: string | null;
@@ -28,6 +31,7 @@ interface LinkCardProps {
 export function LinkCard({
   id,
   title,
+  fallbackTitle,
   canonicalUrl,
   domain,
   summary,
@@ -40,6 +44,13 @@ export function LinkCard({
   selected = false,
   onSelect,
 }: LinkCardProps) {
+  // Get display title - never returns empty/null
+  const displayTitle = getDisplayTitle({
+    title,
+    fallbackTitle: fallbackTitle ?? null,
+    canonicalUrl,
+    domain,
+  });
   return (
     <article className="border-b border-neutral-200 py-4 last:border-b-0">
       <div className="flex items-start gap-3">
@@ -49,7 +60,7 @@ export function LinkCard({
             type="checkbox"
             checked={selected}
             onChange={(e) => onSelect(id, e.target.checked)}
-            aria-label={`Select ${title || 'link'}`}
+            aria-label={`Select ${displayTitle.text}`}
             className="mt-1.5 h-4 w-4 rounded-none border-neutral-300 text-neutral-900"
           />
         )}
@@ -75,9 +86,9 @@ export function LinkCard({
               href={canonicalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:underline"
+              className={`hover:underline ${displayTitle.source === "generated" ? "italic text-neutral-700" : ""}`}
             >
-              {title || "Untitled"}
+              {displayTitle.text}
             </a>
           </h3>
 

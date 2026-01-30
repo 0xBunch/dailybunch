@@ -34,6 +34,9 @@ export default async function DigestsPage() {
             <Link href="/digests" className="font-medium underline underline-offset-4">
               Digests
             </Link>
+            <Link href="/weekly-review" className="text-neutral-600 hover:text-neutral-900">
+              Weekly Review
+            </Link>
             <Link href="/admin" className="text-neutral-600 hover:text-neutral-900">
               Admin
             </Link>

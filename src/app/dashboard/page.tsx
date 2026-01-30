@@ -63,8 +63,11 @@ export default async function ScoreboardPage({
             <Link href="/dashboard" className="font-medium underline underline-offset-4" aria-current="page">
               Feed
             </Link>
-            <Link href="/links/new" className="text-neutral-600 hover:text-neutral-900">
-              Add Link
+            <Link href="/digests" className="text-neutral-600 hover:text-neutral-900">
+              Digests
+            </Link>
+            <Link href="/weekly-review" className="text-neutral-600 hover:text-neutral-900">
+              Weekly Review
             </Link>
             <Link href="/admin" className="text-neutral-600 hover:text-neutral-900">
               Admin
@@ -160,6 +163,7 @@ export default async function ScoreboardPage({
                   key={link.id}
                   id={link.id}
                   title={link.title}
+                  fallbackTitle={link.fallbackTitle}
                   canonicalUrl={link.canonicalUrl}
                   domain={link.domain}
                   summary={link.aiSummary}

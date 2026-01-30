@@ -9,10 +9,12 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getDisplayTitle } from "@/lib/title-utils";
 
 interface LinkData {
   id: string;
   title: string | null;
+  fallbackTitle: string | null;
   canonicalUrl: string;
   domain: string;
   aiSummary: string | null;
@@ -104,6 +106,9 @@ export default function NewDigestPage() {
             <Link href="/digests" className="font-medium underline underline-offset-4">
               Digests
             </Link>
+            <Link href="/weekly-review" className="text-neutral-600 hover:text-neutral-900">
+              Weekly Review
+            </Link>
             <Link href="/admin" className="text-neutral-600 hover:text-neutral-900">
               Admin
             </Link>
@@ -193,7 +198,7 @@ export default function NewDigestPage() {
                     )}
                   </div>
                   <h3 className="font-serif text-lg leading-tight">
-                    {link.title || "Untitled"}
+                    {getDisplayTitle(link).text}
                   </h3>
                   {link.aiSummary && (
                     <p className="text-sm text-neutral-600 mt-1 line-clamp-2">

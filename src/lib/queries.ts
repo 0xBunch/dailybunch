@@ -9,6 +9,7 @@ import prisma from "@/lib/db";
 export interface VelocityLink {
   id: string;
   title: string | null;
+  fallbackTitle: string | null;
   canonicalUrl: string;
   domain: string;
   aiSummary: string | null;
@@ -37,8 +38,11 @@ export async function getVelocityLinks(options: VelocityQueryOptions): Promise<V
   const { timeFilter, limit = 100, categorySlug, entityId } = options;
 
   // Build dynamic SQL based on filters
-  // Exclude null and empty titles - these show as "Untitled" in the UI
-  let filterConditions = `l."firstSeenAt" >= $1 AND l.title IS NOT NULL AND l.title != ''`;
+  // Require either title OR fallbackTitle to be present (never show "Untitled")
+  let filterConditions = `l."firstSeenAt" >= $1 AND (
+    (l.title IS NOT NULL AND l.title != '') OR
+    (l."fallbackTitle" IS NOT NULL AND l."fallbackTitle" != '')
+  )`;
   const params: (Date | string | number)[] = [timeFilter];
 
   if (categorySlug) {
@@ -57,6 +61,7 @@ export async function getVelocityLinks(options: VelocityQueryOptions): Promise<V
     Array<{
       id: string;
       title: string | null;
+      fallbackTitle: string | null;
       canonicalUrl: string;
       domain: string;
       aiSummary: string | null;
@@ -72,6 +77,7 @@ export async function getVelocityLinks(options: VelocityQueryOptions): Promise<V
     SELECT
       l.id,
       l.title,
+      l."fallbackTitle",
       l."canonicalUrl",
       l.domain,
       l."aiSummary",
@@ -97,6 +103,7 @@ export async function getVelocityLinks(options: VelocityQueryOptions): Promise<V
   return results.map((r) => ({
     id: r.id,
     title: r.title,
+    fallbackTitle: r.fallbackTitle,
     canonicalUrl: r.canonicalUrl,
     domain: r.domain,
     aiSummary: r.aiSummary,

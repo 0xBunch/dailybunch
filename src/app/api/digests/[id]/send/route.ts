@@ -90,7 +90,7 @@ export async function POST(
 
     // Prepare items for email
     const emailItems = digest.items.map((item) => ({
-      title: item.note || item.link.title || "Untitled",
+      title: item.note || item.link.title || item.link.fallbackTitle || item.link.domain,
       url: item.link.canonicalUrl,
       domain: item.link.domain,
       summary: item.link.aiSummary,

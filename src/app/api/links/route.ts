@@ -15,10 +15,13 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get("category");
     const search = searchParams.get("q");
 
-    // Build where clause
+    // Build where clause - include links with either title OR fallbackTitle
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const whereClause: any = {
-      title: { not: null },
+      OR: [
+        { title: { not: null } },
+        { fallbackTitle: { not: null } },
+      ],
     };
 
     if (category) {
@@ -26,9 +29,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      whereClause.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { domain: { contains: search, mode: "insensitive" } },
+      whereClause.AND = [
+        {
+          OR: [
+            { title: { contains: search, mode: "insensitive" } },
+            { fallbackTitle: { contains: search, mode: "insensitive" } },
+            { domain: { contains: search, mode: "insensitive" } },
+          ],
+        },
       ];
     }
 
@@ -54,6 +62,7 @@ export async function GET(request: NextRequest) {
     const processedLinks = links.map((link) => ({
       id: link.id,
       title: link.title,
+      fallbackTitle: link.fallbackTitle,
       canonicalUrl: link.canonicalUrl,
       domain: link.domain,
       aiSummary: link.aiSummary,

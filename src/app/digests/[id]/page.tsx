@@ -155,6 +155,9 @@ export default function DigestPage({ params }: { params: Promise<{ id: string }>
             <Link href="/digests" className="font-medium underline underline-offset-4">
               Digests
             </Link>
+            <Link href="/weekly-review" className="text-neutral-600 hover:text-neutral-900">
+              Weekly Review
+            </Link>
             <Link href="/admin" className="text-neutral-600 hover:text-neutral-900">
               Admin
             </Link>
@@ -256,7 +259,7 @@ export default function DigestPage({ params }: { params: Promise<{ id: string }>
                   rel="noopener noreferrer"
                   className="hover:underline"
                 >
-                  {item.headline || item.link.title || "Untitled"}
+                  {item.headline || item.link.title || item.link.domain}
                 </a>
               </h4>
               {item.link.aiSummary && (

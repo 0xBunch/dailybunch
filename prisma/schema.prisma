@@ -120,6 +120,17 @@ model Link {
   aiRetryCount      Int       @default(0) // Number of AI analysis retries
   needsManualReview Boolean   @default(false) // Flag for manual review queue
 
+  // Enrichment tracking (multi-tier title extraction)
+  enrichmentStatus      String    @default("pending") // pending | processing | success | fallback | failed
+  enrichmentRetryCount  Int       @default(0)
+  enrichmentLastAttempt DateTime?
+  enrichmentError       String?
+  enrichmentSource      String?   // mercury | jina | firecrawl | html
+
+  // Fallback title when extraction fails
+  fallbackTitle         String?
+  fallbackTitleSource   String?   // ai | url_path | domain
+
   // Timestamps
   firstSeenAt   DateTime  @default(now())
   lastSeenAt    DateTime  @default(now())
@@ -131,6 +142,7 @@ model Link {
   mentions      Mention[]
   entities      LinkEntity[]
   digestItems   DigestItem[]
+  weeklyReviewSources WeeklyReviewSource[]
 
   @@index([domain])
   @@index([categoryId])
@@ -139,6 +151,8 @@ model Link {
   @@index([lastSeenAt])
   @@index([aiStatus])
   @@index([needsManualReview])
+  @@index([enrichmentStatus])
+  @@index([enrichmentLastAttempt])
 }
 
 model Mention {
@@ -236,6 +250,42 @@ model DigestItem {
 
   @@unique([digestId, linkId])
   @@index([digestId])
+  @@index([linkId])
+}
+
+// ============================================
+// WEEKLY REVIEW (Harper's Style Digest)
+// ============================================
+
+model WeeklyReview {
+  id          String    @id @default(cuid())
+  weekOf      DateTime  // Start of the week
+  content     String    @db.Text // The generated paragraph
+  status      String    @default("draft") // draft, edited, published
+  byline      String    @default("Weekly Review")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+
+  sources     WeeklyReviewSource[]
+
+  @@index([status])
+  @@index([weekOf])
+}
+
+model WeeklyReviewSource {
+  id             String       @id @default(cuid())
+  weeklyReviewId String
+  linkId         String
+  footnoteNumber Int
+  claimText      String?      // The specific claim this source supports
+  createdAt      DateTime     @default(now())
+
+  weeklyReview   WeeklyReview @relation(fields: [weeklyReviewId], references: [id], onDelete: Cascade)
+  link           Link         @relation(fields: [linkId], references: [id])
+
+  @@unique([weeklyReviewId, linkId])
+  @@index([weeklyReviewId])
   @@index([linkId])
 }
 
