@@ -85,6 +85,14 @@ function TrendingLinkCard({ link }: { link: VelocityLink }) {
           >
             {displayTitle}
           </h3>
+          {link.aiSummary && (
+            <p
+              className="text-sm mb-2 line-clamp-2"
+              style={{ color: "var(--muted)" }}
+            >
+              {link.aiSummary}
+            </p>
+          )}
           <div
             className="flex items-center gap-2 text-sm flex-wrap"
             style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
