@@ -80,6 +80,8 @@ export function decodeHtmlEntities(str: string): string {
     .replace(/&copy;/gi, "\u00A9")
     .replace(/&reg;/gi, "\u00AE")
     .replace(/&trade;/gi, "\u2122")
+    .replace(/&raquo;/gi, "\u00BB")
+    .replace(/&laquo;/gi, "\u00AB")
     // Numeric entities (decimal) - &#8211; → –
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
     // Numeric entities (hex) - &#x2013; → –
