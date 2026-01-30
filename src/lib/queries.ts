@@ -111,7 +111,13 @@ export async function getVelocityLinks(options: VelocityQueryOptions): Promise<V
     INNER JOIN "Mention" m ON m."linkId" = l.id
     INNER JOIN "Source" s ON m."sourceId" = s.id
       AND s."showOnDashboard" = true
-      AND (s."baseDomain" IS NULL OR l.domain != s."baseDomain")
+      AND (
+        s."baseDomain" IS NULL
+        OR (
+          l.domain != s."baseDomain"
+          AND NOT (l.domain = ANY(s."internalDomains"))
+        )
+      )
     LEFT JOIN "Category" c ON l."categoryId" = c.id
     LEFT JOIN "Subcategory" sc ON l."subcategoryId" = sc.id
     WHERE ${filterConditions}
@@ -225,7 +231,13 @@ export async function getTrendingLinks(options: TrendingQueryOptions = {}): Prom
     INNER JOIN "Mention" m ON m."linkId" = l.id
     INNER JOIN "Source" s ON m."sourceId" = s.id
       AND s."showOnDashboard" = true
-      AND (s."baseDomain" IS NULL OR l.domain != s."baseDomain")
+      AND (
+        s."baseDomain" IS NULL
+        OR (
+          l.domain != s."baseDomain"
+          AND NOT (l.domain = ANY(s."internalDomains"))
+        )
+      )
     LEFT JOIN "Category" c ON l."categoryId" = c.id
     LEFT JOIN "Subcategory" sc ON l."subcategoryId" = sc.id
     WHERE ${filterConditions}

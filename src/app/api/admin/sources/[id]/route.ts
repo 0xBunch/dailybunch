@@ -27,6 +27,20 @@ export async function POST(
     updateData.showOnDashboard = formData.get("showOnDashboard") === "true";
   }
 
+  if (formData.has("active")) {
+    updateData.active = formData.get("active") === "true";
+  }
+
+  if (formData.has("internalDomains")) {
+    const domainsString = formData.get("internalDomains") as string;
+    // Split by newlines or commas, trim whitespace, filter empty
+    const domains = domainsString
+      .split(/[\n,]/)
+      .map((d) => d.trim().toLowerCase())
+      .filter((d) => d.length > 0);
+    updateData.internalDomains = domains;
+  }
+
   try {
     await prisma.source.update({
       where: { id },

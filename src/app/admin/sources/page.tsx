@@ -381,6 +381,56 @@ export default async function SourcesAdminPage() {
                       </button>
                     </form>
                   </div>
+
+                  {/* Internal Domains */}
+                  <details className="mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+                    <summary
+                      className="text-xs cursor-pointer select-none"
+                      style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
+                    >
+                      Internal Domains ({source.internalDomains?.length || 0})
+                      {source.baseDomain && (
+                        <span style={{ opacity: 0.6 }}> · base: {source.baseDomain}</span>
+                      )}
+                    </summary>
+                    <form
+                      action={`/api/admin/sources/${source.id}`}
+                      method="POST"
+                      className="mt-3"
+                    >
+                      <label
+                        className="block text-xs mb-2"
+                        style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
+                      >
+                        Additional domains to treat as internal (one per line):
+                      </label>
+                      <textarea
+                        name="internalDomains"
+                        rows={3}
+                        defaultValue={source.internalDomains?.join("\n") || ""}
+                        placeholder="passport.online&#10;stratechery.network"
+                        className="w-full px-2 py-1 text-xs mb-2"
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          border: "1px solid var(--border)",
+                          background: "var(--surface-cream)",
+                          resize: "vertical",
+                        }}
+                      />
+                      <button
+                        type="submit"
+                        className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          background: "var(--ink)",
+                          color: "#fff",
+                          border: "none",
+                        }}
+                      >
+                        Save Domains
+                      </button>
+                    </form>
+                  </details>
                 </div>
               </div>
             );

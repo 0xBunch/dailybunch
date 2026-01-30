@@ -61,6 +61,7 @@ model Source {
   includeOwnLinks    Boolean   @default(false) // false = only scrape external links, true = include source's own articles
   showOnDashboard    Boolean   @default(true)  // false = hide from dashboard trending, still visible on /links
   baseDomain         String?   // Extracted from URL (e.g., "stratechery.com"), used to filter self-links
+  internalDomains    String[]  @default([]) // Additional domains to treat as internal (e.g., ["passport.online"])
 
   category      Category?    @relation(fields: [categoryId], references: [id])
   mentions      Mention[]
