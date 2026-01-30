@@ -9,6 +9,7 @@
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { decodeHtmlEntities } from "@/lib/title-utils";
 
 interface DigestItem {
   id: string;
@@ -259,7 +260,7 @@ export default function DigestPage({ params }: { params: Promise<{ id: string }>
                   rel="noopener noreferrer"
                   className="hover:underline"
                 >
-                  {item.headline || item.link.title || item.link.domain}
+                  {decodeHtmlEntities(item.headline || item.link.title || item.link.domain)}
                 </a>
               </h4>
               {item.link.aiSummary && (

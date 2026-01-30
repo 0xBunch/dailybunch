@@ -172,42 +172,60 @@ export default function NewDigestPage() {
           </div>
         ) : (
           <div className="border border-neutral-200 divide-y divide-neutral-200">
-            {links.map((link) => (
-              <label
-                key={link.id}
-                className={`flex items-start gap-3 p-4 cursor-pointer hover:bg-neutral-50 ${
-                  selectedIds.has(link.id) ? "bg-neutral-50" : ""
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(link.id)}
-                  onChange={() => toggleLink(link.id)}
-                  className="mt-1 h-4 w-4 border-neutral-300 text-neutral-900 focus:ring-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-xs text-neutral-500 mb-1">
-                    {link.category && (
-                      <span className="bg-neutral-100 px-1.5 py-0.5">
-                        {link.category.name}
-                      </span>
-                    )}
-                    <span>{link.domain}</span>
-                    {link.velocity > 1 && (
-                      <span className="font-medium">{link.velocity} sources</span>
+            {links.map((link) => {
+              const displayTitle = getDisplayTitle(link);
+              return (
+                <div
+                  key={link.id}
+                  className={`p-4 cursor-pointer hover:bg-neutral-50 ${
+                    selectedIds.has(link.id) ? "bg-neutral-50" : ""
+                  }`}
+                  onClick={() => toggleLink(link.id)}
+                  style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(link.id)}
+                    onChange={() => toggleLink(link.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: "16px",
+                      height: "16px",
+                      marginTop: "4px",
+                      flexShrink: 0,
+                      accentColor: "var(--ink)",
+                    }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="flex items-center gap-2 text-xs text-neutral-500 mb-1 flex-wrap">
+                      {link.category && (
+                        <span className="bg-neutral-100 px-1.5 py-0.5">
+                          {link.category.name}
+                        </span>
+                      )}
+                      <span>{link.domain}</span>
+                      {link.velocity > 1 && (
+                        <span className="font-medium tabular-nums">{link.velocity} sources</span>
+                      )}
+                    </div>
+                    <p
+                      className="text-lg leading-tight"
+                      style={{
+                        fontFamily: "var(--font-body)",
+                        textTransform: "none",
+                      }}
+                    >
+                      {displayTitle.text}
+                    </p>
+                    {link.aiSummary && (
+                      <p className="text-sm text-neutral-600 mt-1 line-clamp-2">
+                        {link.aiSummary}
+                      </p>
                     )}
                   </div>
-                  <h3 className="font-serif text-lg leading-tight">
-                    {getDisplayTitle(link).text}
-                  </h3>
-                  {link.aiSummary && (
-                    <p className="text-sm text-neutral-600 mt-1 line-clamp-2">
-                      {link.aiSummary}
-                    </p>
-                  )}
                 </div>
-              </label>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

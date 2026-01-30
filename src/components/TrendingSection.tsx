@@ -6,6 +6,7 @@
  */
 
 import { TrendingBadge } from "./TrendingBadge";
+import { getDisplayTitle } from "@/lib/title-utils";
 import type { VelocityLink } from "@/lib/queries";
 
 interface TrendingSectionProps {
@@ -53,7 +54,12 @@ export function TrendingSection({
 }
 
 function TrendingLinkCard({ link }: { link: VelocityLink }) {
-  const displayTitle = link.title || link.fallbackTitle || link.domain;
+  const displayTitle = getDisplayTitle({
+    title: link.title,
+    fallbackTitle: link.fallbackTitle,
+    canonicalUrl: link.canonicalUrl,
+    domain: link.domain,
+  }).text;
 
   return (
     <a

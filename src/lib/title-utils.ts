@@ -3,7 +3,39 @@
  *
  * Provides consistent title display across the application.
  * Guarantees every link has a displayable title - never "Untitled".
+ * Handles HTML entity decoding for clean display.
  */
+
+/**
+ * Decode common HTML entities to their character equivalents.
+ * Handles both named entities (&amp;) and numeric entities (&#8211;).
+ */
+export function decodeHtmlEntities(str: string): string {
+  return str
+    // Named entities
+    .replace(/&ndash;/gi, "–")
+    .replace(/&mdash;/gi, "—")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&hellip;/gi, "\u2026")
+    .replace(/&lsquo;/gi, "\u2018")
+    .replace(/&rsquo;/gi, "\u2019")
+    .replace(/&ldquo;/gi, "\u201C")
+    .replace(/&rdquo;/gi, "\u201D")
+    .replace(/&bull;/gi, "\u2022")
+    .replace(/&copy;/gi, "\u00A9")
+    .replace(/&reg;/gi, "\u00AE")
+    .replace(/&trade;/gi, "\u2122")
+    // Numeric entities (decimal) - &#8211; → –
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    // Numeric entities (hex) - &#x2013; → –
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
+}
 
 export interface TitleableLink {
   title: string | null;
@@ -21,14 +53,15 @@ export interface DisplayTitleResult {
  * Get a displayable title for a link.
  * Priority: title → fallbackTitle → URL-derived title
  * Never returns empty string or null.
+ * Decodes HTML entities for clean display.
  */
 export function getDisplayTitle(link: TitleableLink): DisplayTitleResult {
   if (link.title && link.title.trim()) {
-    return { text: link.title.trim(), source: "extracted" };
+    return { text: decodeHtmlEntities(link.title.trim()), source: "extracted" };
   }
 
   if (link.fallbackTitle && link.fallbackTitle.trim()) {
-    return { text: link.fallbackTitle.trim(), source: "fallback" };
+    return { text: decodeHtmlEntities(link.fallbackTitle.trim()), source: "fallback" };
   }
 
   return {

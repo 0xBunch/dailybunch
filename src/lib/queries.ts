@@ -109,7 +109,9 @@ export async function getVelocityLinks(options: VelocityQueryOptions): Promise<V
       ARRAY_AGG(DISTINCT s.name) FILTER (WHERE s.name IS NOT NULL) as "sourceNames"
     FROM "Link" l
     INNER JOIN "Mention" m ON m."linkId" = l.id
-    INNER JOIN "Source" s ON m."sourceId" = s.id AND s."showOnDashboard" = true
+    INNER JOIN "Source" s ON m."sourceId" = s.id
+      AND s."showOnDashboard" = true
+      AND (s."baseDomain" IS NULL OR l.domain != s."baseDomain")
     LEFT JOIN "Category" c ON l."categoryId" = c.id
     LEFT JOIN "Subcategory" sc ON l."subcategoryId" = sc.id
     WHERE ${filterConditions}
@@ -221,7 +223,9 @@ export async function getTrendingLinks(options: TrendingQueryOptions = {}): Prom
       ARRAY_AGG(DISTINCT s.name) FILTER (WHERE s.name IS NOT NULL) as "sourceNames"
     FROM "Link" l
     INNER JOIN "Mention" m ON m."linkId" = l.id
-    INNER JOIN "Source" s ON m."sourceId" = s.id AND s."showOnDashboard" = true
+    INNER JOIN "Source" s ON m."sourceId" = s.id
+      AND s."showOnDashboard" = true
+      AND (s."baseDomain" IS NULL OR l.domain != s."baseDomain")
     LEFT JOIN "Category" c ON l."categoryId" = c.id
     LEFT JOIN "Subcategory" sc ON l."subcategoryId" = sc.id
     WHERE ${filterConditions}
