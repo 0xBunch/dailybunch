@@ -97,7 +97,7 @@ export async function getVelocityLinks(options: VelocityQueryOptions): Promise<V
       c.name as "categoryName",
       c.slug as "categorySlug",
       sc.name as "subcategoryName",
-      COUNT(DISTINCT m.id) as velocity,
+      COUNT(DISTINCT s.id) as velocity,
       SUM(
         CASE
           WHEN m."seenAt" >= NOW() - INTERVAL '24 hours' THEN 1.0
@@ -219,7 +219,7 @@ export async function getTrendingLinks(options: TrendingQueryOptions = {}): Prom
       c.name as "categoryName",
       c.slug as "categorySlug",
       sc.name as "subcategoryName",
-      COUNT(DISTINCT m.id) as velocity,
+      COUNT(DISTINCT s.id) as velocity,
       SUM(
         CASE
           WHEN m."seenAt" >= NOW() - INTERVAL '24 hours' THEN 1.0
@@ -245,7 +245,7 @@ export async function getTrendingLinks(options: TrendingQueryOptions = {}): Prom
     LEFT JOIN "Subcategory" sc ON l."subcategoryId" = sc.id
     WHERE ${filterConditions}
     GROUP BY l.id, c.name, c.slug, sc.name
-    HAVING COUNT(DISTINCT m.id) >= $${minVelocityParam}
+    HAVING COUNT(DISTINCT s.id) >= $${minVelocityParam}
       AND SUM(
         CASE
           WHEN m."seenAt" >= NOW() - INTERVAL '24 hours' THEN 1.0
