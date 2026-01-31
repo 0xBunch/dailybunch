@@ -15,7 +15,7 @@ import prisma from "@/lib/db";
 import { enrichLink, type LinkToEnrich } from "@/lib/enrich";
 import { isBlockedTitle } from "@/lib/title-utils";
 
-const BATCH_SIZE = 50; // Increased from 20 for faster processing
+const BATCH_SIZE = 10; // Reduced to prevent timeouts - Railway has 60s limit
 const MAX_RETRIES = 5;
 
 interface EnrichmentStats {
