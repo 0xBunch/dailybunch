@@ -1,9 +1,26 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { OrganizationSchema, WebSiteSchema } from "@/components/schema/SchemaOrg";
 
 export const metadata: Metadata = {
   title: "Daily Bunch",
   description: "Cultural signal intelligence - track link velocity across newsletters and feeds",
+  openGraph: {
+    title: "Daily Bunch",
+    description: "What are tastemakers collectively pointing at right now?",
+    url: "https://dailybunch.com",
+    siteName: "Daily Bunch",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Daily Bunch",
+    description: "What are tastemakers collectively pointing at right now?",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
@@ -21,7 +38,11 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <OrganizationSchema />
+        <WebSiteSchema />
+        {children}
+      </body>
     </html>
   );
 }

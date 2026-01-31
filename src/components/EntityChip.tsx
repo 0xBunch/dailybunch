@@ -2,7 +2,7 @@
  * Entity Chip Component
  *
  * Displays an entity tag (person, org, product).
- * Lo-fi aesthetic: plain underlined text.
+ * Minimal styling with type indicator.
  */
 
 interface EntityChipProps {
@@ -14,9 +14,22 @@ export function EntityChip({ name, type }: EntityChipProps) {
   const typeIcon = type === "person" ? "@" : type === "organization" ? "+" : "#";
 
   return (
-    <span className="inline-flex items-center text-xs text-neutral-600 hover:text-neutral-900 cursor-default">
-      <span className="opacity-50 mr-0.5">{typeIcon}</span>
-      <span className="underline underline-offset-2 decoration-neutral-300">{name}</span>
+    <span
+      className="inline-flex items-center text-xs transition-opacity hover:opacity-70"
+      style={{ color: "var(--text-muted)" }}
+    >
+      <span style={{ color: "var(--text-faint)", marginRight: "2px" }}>
+        {typeIcon}
+      </span>
+      <span
+        style={{
+          textDecoration: "underline",
+          textUnderlineOffset: "2px",
+          textDecorationColor: "var(--border)",
+        }}
+      >
+        {name}
+      </span>
     </span>
   );
 }

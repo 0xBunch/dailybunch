@@ -205,7 +205,7 @@ export default async function SourcesAdminPage() {
 
         {/* Legend */}
         <div
-          className="mb-6 flex items-center gap-6 text-xs"
+          className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs"
           style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
         >
           <span>
@@ -213,6 +213,9 @@ export default async function SourcesAdminPage() {
           </span>
           <span>
             <strong>Own Links:</strong> Include self-referential links
+          </span>
+          <span>
+            <strong>Tier:</strong> T1=Major Pubs, T2=Top Newsletters, T3=Quality Blogs, T4=Aggregators
           </span>
         </div>
 
@@ -290,6 +293,19 @@ export default async function SourcesAdminPage() {
                       </>
                     )}
                     <span style={{ opacity: 0.5 }}> · </span>
+                    <span
+                      style={{
+                        color:
+                          source.tier === "TIER_1"
+                            ? "var(--accent-warm)"
+                            : source.tier === "TIER_2"
+                              ? "var(--status-success)"
+                              : "inherit",
+                      }}
+                    >
+                      {source.tier?.replace("_", " ") || "TIER 3"}
+                    </span>
+                    <span style={{ opacity: 0.5 }}> · </span>
                     last {formatTimeAgo(source.lastFetchedAt)}
                   </p>
 
@@ -364,6 +380,25 @@ export default async function SourcesAdminPage() {
                       >
                         Own Links {source.includeOwnLinks ? "ON" : "OFF"}
                       </button>
+                    </form>
+                    <form action={`/api/admin/sources/${source.id}`} method="POST" className="flex items-center gap-1">
+                      <select
+                        name="tier"
+                        defaultValue={source.tier}
+                        className="text-xs px-2 py-1"
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          background: "var(--surface-cream)",
+                          border: "1px solid var(--border)",
+                          color: "var(--ink)",
+                        }}
+                        onChange={(e) => e.target.form?.requestSubmit()}
+                      >
+                        <option value="TIER_1">T1 (10)</option>
+                        <option value="TIER_2">T2 (7)</option>
+                        <option value="TIER_3">T3 (5)</option>
+                        <option value="TIER_4">T4 (2)</option>
+                      </select>
                     </form>
                     {source.type === "rss" && source.url && (
                       <form action={`/api/admin/sources/${source.id}/fetch`} method="POST">

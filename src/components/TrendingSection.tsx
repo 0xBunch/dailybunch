@@ -1,28 +1,33 @@
 /**
  * TrendingSection Component
  *
- * Displays trending links in a highlighted section.
- * Shows full source attribution for transparency.
+ * Displays trending links with cultural context.
+ * Elevated cards with accent border and full metadata.
  */
 
-import { TrendingBadge } from "./TrendingBadge";
 import { getDisplayTitle } from "@/lib/title-utils";
 import type { VelocityLink } from "@/lib/queries";
 
 interface TrendingSectionProps {
-  links: VelocityLink[];
+  links: Array<
+    VelocityLink & {
+      culturalWhyNow?: string | null;
+      culturalPrediction?: string | null;
+      commentary?: string | null;
+    }
+  >;
   title?: string;
 }
 
 function formatTimeAgo(date: Date): string {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-  if (seconds < 60) return "just now";
+  if (seconds < 60) return "now";
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `${hours}h`;
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return `${days}d`;
 }
 
 export function TrendingSection({
@@ -32,28 +37,39 @@ export function TrendingSection({
   if (links.length === 0) return null;
 
   return (
-    <section className="mb-8">
-      <h2
-        className="text-xs uppercase tracking-wide mb-4 pb-2 flex items-center gap-2"
-        style={{
-          color: "var(--accent-warm)",
-          fontFamily: "var(--font-mono)",
-          borderBottom: "1px solid var(--accent-warm)",
-        }}
-      >
-        <span>★</span>
-        {title}
-      </h2>
-      <div className="space-y-3">
+    <section className="mb-10">
+      <header className="flex items-center gap-3 mb-5 pb-3 border-b" style={{ borderColor: "var(--border)" }}>
+        <span
+          className="size-2"
+          style={{ background: "var(--accent)" }}
+        />
+        <h2
+          className="text-xs uppercase tracking-wider"
+          style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
+        >
+          {title}
+        </h2>
+        <span
+          className="text-xs tabular-nums"
+          style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+        >
+          {links.length}
+        </span>
+      </header>
+      <div className="space-y-4">
         {links.map((link) => (
-          <TrendingLinkCard key={link.id} link={link} />
+          <TrendingCard key={link.id} link={link} />
         ))}
       </div>
     </section>
   );
 }
 
-function TrendingLinkCard({ link }: { link: VelocityLink }) {
+function TrendingCard({
+  link,
+}: {
+  link: TrendingSectionProps["links"][0];
+}) {
   const displayTitle = getDisplayTitle({
     title: link.title,
     fallbackTitle: link.fallbackTitle,
@@ -66,60 +82,95 @@ function TrendingLinkCard({ link }: { link: VelocityLink }) {
       href={link.canonicalUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="block p-4 transition-opacity hover:opacity-80"
+      className="block p-5 transition-all hover:translate-x-1"
       style={{
-        background: "#fff",
+        background: "var(--surface-elevated)",
         border: "1px solid var(--border)",
-        borderLeft: "4px solid var(--accent-warm)",
+        borderLeft: "3px solid var(--accent)",
         textDecoration: "none",
       }}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-6">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <TrendingBadge />
+          {/* Meta row */}
+          <div className="flex items-center gap-3 mb-2">
+            <span
+              className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider"
+              style={{ color: "var(--accent)" }}
+            >
+              <span>●</span>
+              <span>Trending</span>
+            </span>
+            {link.culturalPrediction && (
+              <span
+                className="text-[10px] uppercase tracking-wider"
+                style={{
+                  color:
+                    link.culturalPrediction === "growing"
+                      ? "var(--status-success)"
+                      : link.culturalPrediction === "fading"
+                        ? "var(--text-faint)"
+                        : "var(--text-muted)",
+                }}
+              >
+                {link.culturalPrediction === "growing" && "↑ Growing"}
+                {link.culturalPrediction === "peaking" && "◆ Peaking"}
+                {link.culturalPrediction === "fading" && "↓ Fading"}
+              </span>
+            )}
           </div>
+
+          {/* Title */}
           <h3
-            className="text-base font-medium mb-2 line-clamp-2"
-            style={{ color: "var(--ink)" }}
+            className="text-lg leading-snug mb-2"
+            style={{ color: "var(--text-primary)" }}
           >
             {displayTitle}
           </h3>
-          {link.aiSummary && (
+
+          {/* Cultural context or summary */}
+          {(link.culturalWhyNow || link.commentary || link.aiSummary) && (
             <p
-              className="text-sm mb-2 line-clamp-2"
-              style={{ color: "var(--muted)" }}
+              className="text-sm leading-relaxed mb-3 line-clamp-2"
+              style={{ color: "var(--text-secondary)" }}
             >
-              {link.aiSummary}
+              {link.culturalWhyNow || link.commentary || link.aiSummary}
             </p>
           )}
+
+          {/* Stats row */}
           <div
-            className="flex items-center gap-2 text-sm flex-wrap"
-            style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
+            className="flex items-center gap-3 text-xs"
+            style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
           >
             <span>{link.domain}</span>
-            <span style={{ opacity: 0.5 }}>·</span>
+            <span style={{ color: "var(--border)" }}>·</span>
             <span className="tabular-nums">
               {link.velocity} {link.velocity === 1 ? "source" : "sources"}
             </span>
-            <span style={{ opacity: 0.5 }}>·</span>
+            <span style={{ color: "var(--border)" }}>·</span>
             <span>{formatTimeAgo(link.firstSeenAt)}</span>
           </div>
+
+          {/* Source attribution */}
           {link.sourceNames.length > 0 && (
             <div
-              className="mt-2 text-xs"
-              style={{ color: "var(--muted)" }}
+              className="mt-3 pt-3 border-t text-xs"
+              style={{ borderColor: "var(--border-subtle)", color: "var(--text-faint)" }}
             >
-              {link.sourceNames.join(", ")}
+              {link.sourceNames.slice(0, 4).join(" · ")}
+              {link.sourceNames.length > 4 && ` +${link.sourceNames.length - 4}`}
             </div>
           )}
         </div>
+
+        {/* Category badge */}
         {link.categoryName && (
           <span
-            className="shrink-0 text-xs px-2 py-1"
+            className="shrink-0 text-[10px] px-2 py-1 uppercase tracking-wider"
             style={{
-              background: "var(--surface-cream)",
-              color: "var(--muted)",
+              background: "var(--surface)",
+              color: "var(--text-muted)",
               fontFamily: "var(--font-mono)",
             }}
           >

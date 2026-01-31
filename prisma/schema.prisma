@@ -52,6 +52,10 @@ model Source {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Trust & Quality scoring
+  trustScore    Int       @default(5)     // 1-10 scale: how much to weight this source's links
+  tier          String    @default("TIER_3") // TIER_1 (10), TIER_2 (7), TIER_3 (5), TIER_4 (2)
+
   // Error tracking
   lastError          String?   // Last fetch error message
   lastErrorAt        DateTime? // When the last error occurred
@@ -106,9 +110,27 @@ model Link {
   author        String?   // Article author if available
   publishedAt   DateTime? // Article publication date if available
 
-  // AI-generated fields
+  // AI-generated fields (Layer 1: Basic enrichment)
   aiSummary     String?
   aiAnalyzedAt  DateTime?
+
+  // AI-generated fields (Layer 2: Cultural analysis - for velocity >= 3)
+  culturalWhyNow      String?   @db.Text  // Why this resonates now
+  culturalTension     String?   @db.Text  // Underlying debate/stakes
+  culturalThread      String?   @db.Text  // Connection to other trends
+  culturalPrediction  String?             // growing | peaking | fading
+  culturalPredictionReason String? @db.Text
+  culturalContrarian  String?   @db.Text  // Angle not being discussed
+  culturalAnalyzedAt  DateTime?
+
+  // AI-generated commentary (for link detail pages)
+  commentary          String?   @db.Text  // 2-3 sentence contextual insight
+  commentaryPersona   String?             // connector | historian | skeptic | scout
+  commentaryGeneratedAt DateTime?
+
+  // Embedding for similarity search (stored as JSON array of floats)
+  embedding           String?   @db.Text  // JSON array of 384 floats (all-MiniLM-L6-v2)
+  embeddingGeneratedAt DateTime?
 
   // Taxonomy
   categoryId    String?
@@ -186,9 +208,17 @@ model Mention {
 model Entity {
   id        String   @id @default(cuid())
   name      String   @unique
+  slug      String?  // URL-friendly slug (generated from name)
   type      String   // "person" | "organization" | "product"
   aliases   String[] // Alternative names/handles
   active    Boolean  @default(true)
+
+  // Velocity tracking (computed, updated periodically)
+  velocityWeek    Int       @default(0) // Links mentioning this entity in last 7 days
+  velocityMonth   Int       @default(0) // Links mentioning this entity in last 30 days
+  velocityTrend   String?   // rising | stable | falling
+  velocityUpdatedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -196,6 +226,8 @@ model Entity {
 
   @@index([type])
   @@index([active])
+  @@index([slug])
+  @@index([velocityWeek])
 }
 
 model LinkEntity {
@@ -224,6 +256,41 @@ model EntitySuggestion {
 
   @@index([status])
   @@index([createdAt])
+}
+
+// ============================================
+// STORIES (Link Clustering)
+// ============================================
+
+model Story {
+  id          String    @id @default(cuid())
+  title       String    // AI-generated title for the story cluster
+  narrative   String?   @db.Text // What ties these links together
+  status      String    @default("active") // active | merged | archived
+
+  // Timestamps
+  firstLinkAt DateTime  // When the first link in this story was seen
+  lastLinkAt  DateTime  // When the most recent link was added
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  links       StoryLink[]
+
+  @@index([status])
+  @@index([firstLinkAt])
+  @@index([lastLinkAt])
+}
+
+model StoryLink {
+  id        String   @id @default(cuid())
+  storyId   String
+  linkId    String   @unique // A link can only belong to one story
+  addedAt   DateTime @default(now())
+
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@index([storyId])
+  @@index([linkId])
 }
 
 // ============================================
@@ -308,4 +375,20 @@ model Blacklist {
   createdAt DateTime @default(now())
 
   @@index([type])
+}
+
+// ============================================
+// URL CANONICALIZATION CACHE
+// ============================================
+
+model UrlCache {
+  id            String   @id @default(cuid())
+  originalUrl   String   @unique // The URL before canonicalization
+  canonicalUrl  String   // The resolved canonical URL
+  redirectChain String[] // Intermediate URLs in the redirect chain
+  resolvedAt    DateTime @default(now())
+  expiresAt     DateTime // Cache expiration time
+
+  @@index([canonicalUrl])
+  @@index([expiresAt])
 }

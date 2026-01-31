@@ -4,7 +4,7 @@
  * Uses Gemini Flash to:
  * 1. Categorize links
  * 2. Extract mentioned entities
- * 3. Generate summaries
+ * 3. Generate summaries (with Daily Bunch voice)
  * 4. Suggest new entities (queued for approval)
  *
  * Gemini Flash chosen for:
@@ -18,6 +18,7 @@ import prisma from "@/lib/db";
 import { Errors, ServiceError, wrapError } from "./errors";
 import { log } from "./logger";
 import { withRetry, RetryPresets } from "./retry";
+import { getEnrichmentPrompt, type EnrichmentContext } from "./ai/prompts";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
@@ -167,38 +168,20 @@ export async function analyzeLink(
     const taxonomy = cachedContext?.taxonomy || await getTaxonomy();
     const entities = cachedContext?.entities || await getEntities();
 
-    const entityList = entities
-      .map((e) => `- ${e.name} (${e.type})${e.aliases.length ? ` [aliases: ${e.aliases.join(", ")}]` : ""}`)
-      .join("\n");
+    // Build context for voice-guided enrichment prompt
+    const enrichmentContext: EnrichmentContext = {
+      url,
+      title: title || undefined,
+      description: description || undefined,
+      taxonomy,
+      entities: entities.map((e) => ({
+        name: e.name,
+        type: e.type,
+        aliases: e.aliases,
+      })),
+    };
 
-    const prompt = `Analyze this link and provide structured data.
-
-URL: ${url}
-Title: ${title || "Unknown"}
-Description: ${description || "None provided"}
-
-TAXONOMY (pick the best fit):
-${taxonomy}
-
-KNOWN ENTITIES (match any that are relevant):
-${entityList}
-
-Respond with valid JSON only, no markdown:
-{
-  "category": "CATEGORY_NAME",
-  "subcategory": "subcategory_name or null",
-  "summary": "2-3 sentence summary of what this link is about",
-  "matchedEntities": ["Entity Name 1", "Entity Name 2"],
-  "suggestedEntities": [
-    {"name": "New Person/Company", "type": "person|organization|product", "aliases": ["alias1"]}
-  ]
-}
-
-Rules:
-- Only match entities if they are clearly relevant to the content
-- Only suggest new entities if they are notable figures, companies, or products worth tracking
-- Keep summary concise and factual
-- If unsure about category, use CULTURE as default`;
+    const prompt = getEnrichmentPrompt(enrichmentContext);
 
     // Call Gemini with retry
     const responseText = await callGeminiWithRetry(prompt, context);

@@ -41,6 +41,22 @@ export async function POST(
     updateData.internalDomains = domains;
   }
 
+  if (formData.has("tier")) {
+    const tier = formData.get("tier") as string;
+    // Validate tier value
+    if (["TIER_1", "TIER_2", "TIER_3", "TIER_4"].includes(tier)) {
+      updateData.tier = tier;
+      // Auto-set trustScore based on tier
+      const trustScores: Record<string, number> = {
+        TIER_1: 10,
+        TIER_2: 7,
+        TIER_3: 5,
+        TIER_4: 2,
+      };
+      updateData.trustScore = trustScores[tier];
+    }
+  }
+
   try {
     await prisma.source.update({
       where: { id },

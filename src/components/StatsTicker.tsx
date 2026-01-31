@@ -1,8 +1,8 @@
 /**
  * StatsTicker Component
  *
- * Dark horizontal bar with live stats in monospace.
- * Editorial control room aesthetic.
+ * Minimal horizontal bar with live stats.
+ * Inverted colors, monospace numbers.
  */
 
 interface StatsTickerProps {
@@ -16,24 +16,28 @@ interface StatsTickerProps {
 export function StatsTicker({ stats }: StatsTickerProps) {
   return (
     <div
-      className="border-b px-4 py-2 md:px-6 md:py-3"
-      style={{ borderColor: "var(--border)", background: "var(--ink)" }}
+      className="border-b px-4 py-2.5 md:px-6"
+      style={{
+        borderColor: "var(--border)",
+        background: "var(--text-primary)",
+      }}
     >
-      <div className="max-w-6xl mx-auto flex items-center gap-4 md:gap-8">
+      <div className="max-w-4xl mx-auto flex items-center gap-6 md:gap-10">
         {stats.map((stat, index) => (
-          <div key={stat.label} className="flex items-center gap-4 md:gap-8">
+          <div key={stat.label} className="flex items-center gap-6 md:gap-10">
             {index > 0 && (
               <div
-                className="w-px h-4 md:h-6"
-                style={{ background: "rgba(255,255,255,0.2)" }}
+                className="w-px h-4"
+                style={{ background: "rgba(255,255,255,0.15)" }}
               />
             )}
-            <div className="flex items-center gap-1 md:gap-2">
+            <div className="flex items-baseline gap-2">
               <span
-                className="text-lg md:text-2xl font-medium tabular-nums"
+                className="text-xl md:text-2xl tabular-nums"
                 style={{
                   fontFamily: "var(--font-mono)",
-                  color: stat.highlight ? "var(--accent-warm)" : "#fff",
+                  fontWeight: 400,
+                  color: stat.highlight ? "var(--accent)" : "#ffffff",
                 }}
               >
                 {typeof stat.value === "number"
@@ -41,8 +45,8 @@ export function StatsTicker({ stats }: StatsTickerProps) {
                   : stat.value}
               </span>
               <span
-                className="text-[10px] md:text-xs uppercase tracking-wide"
-                style={{ color: "#888" }}
+                className="text-[10px] uppercase tracking-wider"
+                style={{ color: "rgba(255,255,255,0.5)" }}
               >
                 {stat.label}
               </span>

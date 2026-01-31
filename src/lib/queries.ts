@@ -99,12 +99,25 @@ export async function getVelocityLinks(options: VelocityQueryOptions): Promise<V
       sc.name as "subcategoryName",
       COUNT(DISTINCT s.id) as velocity,
       SUM(
-        CASE
+        -- Time weight * Trust weight (normalized)
+        (CASE
           WHEN m."seenAt" >= NOW() - INTERVAL '24 hours' THEN 1.0
           WHEN m."seenAt" >= NOW() - INTERVAL '48 hours' THEN 0.7
           WHEN m."seenAt" >= NOW() - INTERVAL '72 hours' THEN 0.4
           ELSE 0.2
-        END
+        END)
+        *
+        -- Trust score weight (1-10 normalized to 0.1-1.0)
+        (COALESCE(s."trustScore", 5)::float / 10.0)
+        *
+        -- Tier weight (TIER_1=1.0, TIER_2=0.7, TIER_3=0.5, TIER_4=0.2)
+        (CASE s.tier
+          WHEN 'TIER_1' THEN 1.0
+          WHEN 'TIER_2' THEN 0.7
+          WHEN 'TIER_3' THEN 0.5
+          WHEN 'TIER_4' THEN 0.2
+          ELSE 0.5
+        END)
       )::float as "weightedVelocity",
       EXTRACT(EPOCH FROM (NOW() - MIN(m."seenAt"))) / 3600 as "hoursSinceFirstMention",
       ARRAY_AGG(DISTINCT s.name) FILTER (WHERE s.name IS NOT NULL) as "sourceNames"
@@ -221,12 +234,25 @@ export async function getTrendingLinks(options: TrendingQueryOptions = {}): Prom
       sc.name as "subcategoryName",
       COUNT(DISTINCT s.id) as velocity,
       SUM(
-        CASE
+        -- Time weight * Trust weight (normalized)
+        (CASE
           WHEN m."seenAt" >= NOW() - INTERVAL '24 hours' THEN 1.0
           WHEN m."seenAt" >= NOW() - INTERVAL '48 hours' THEN 0.7
           WHEN m."seenAt" >= NOW() - INTERVAL '72 hours' THEN 0.4
           ELSE 0.2
-        END
+        END)
+        *
+        -- Trust score weight (1-10 normalized to 0.1-1.0)
+        (COALESCE(s."trustScore", 5)::float / 10.0)
+        *
+        -- Tier weight (TIER_1=1.0, TIER_2=0.7, TIER_3=0.5, TIER_4=0.2)
+        (CASE s.tier
+          WHEN 'TIER_1' THEN 1.0
+          WHEN 'TIER_2' THEN 0.7
+          WHEN 'TIER_3' THEN 0.5
+          WHEN 'TIER_4' THEN 0.2
+          ELSE 0.5
+        END)
       )::float as "weightedVelocity",
       EXTRACT(EPOCH FROM (NOW() - MIN(m."seenAt"))) / 3600 as "hoursSinceFirstMention",
       ARRAY_AGG(DISTINCT s.name) FILTER (WHERE s.name IS NOT NULL) as "sourceNames"
@@ -247,13 +273,23 @@ export async function getTrendingLinks(options: TrendingQueryOptions = {}): Prom
     GROUP BY l.id, c.name, c.slug, sc.name
     HAVING COUNT(DISTINCT s.id) >= $${minVelocityParam}
       AND SUM(
-        CASE
+        (CASE
           WHEN m."seenAt" >= NOW() - INTERVAL '24 hours' THEN 1.0
           WHEN m."seenAt" >= NOW() - INTERVAL '48 hours' THEN 0.7
           WHEN m."seenAt" >= NOW() - INTERVAL '72 hours' THEN 0.4
           ELSE 0.2
-        END
-      ) >= 1.5
+        END)
+        *
+        (COALESCE(s."trustScore", 5)::float / 10.0)
+        *
+        (CASE s.tier
+          WHEN 'TIER_1' THEN 1.0
+          WHEN 'TIER_2' THEN 0.7
+          WHEN 'TIER_3' THEN 0.5
+          WHEN 'TIER_4' THEN 0.2
+          ELSE 0.5
+        END)
+      ) >= 0.3
     ORDER BY "weightedVelocity" DESC, velocity DESC
     LIMIT $${limitParam}
     `,
