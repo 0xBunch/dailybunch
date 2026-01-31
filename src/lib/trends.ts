@@ -139,7 +139,10 @@ export async function getHiddenGems(limit = 10): Promise<TrendingLink[]> {
     LEFT JOIN "Category" c ON l."categoryId" = c.id
     WHERE l."isBlocked" = false
       AND l."firstSeenAt" >= ${sevenDaysAgo}
-      AND (l.title IS NOT NULL OR l."fallbackTitle" IS NOT NULL)
+      AND l.title IS NOT NULL
+      AND LENGTH(l.title) >= 15
+      AND LOWER(l.title) NOT LIKE '%' || LOWER(REPLACE(l.domain, 'www.', '')) || '%'
+      AND l.title ~ '[a-zA-Z].*\\s+.*[a-zA-Z]'
     GROUP BY l.id, c.name
     HAVING COUNT(DISTINCT m."sourceId") BETWEEN 1 AND 2
       AND AVG(s."trustScore") >= 7
