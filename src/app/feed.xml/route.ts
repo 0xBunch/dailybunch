@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { getTrendingLinks } from "@/lib/queries";
 
-export const revalidate = 3600; // Revalidate every hour
+export const dynamic = "force-dynamic"; // Render at request time (not build time)
 
 function escapeXml(str: string): string {
   return str
