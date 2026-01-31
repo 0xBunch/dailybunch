@@ -9,28 +9,51 @@ A cultural signal intelligence platform that surfaces what's traveling across th
 Daily Bunch monitors RSS feeds from newsletters, blogs, and publications to identify links that multiple sources are mentioning. When several tastemakers point at the same article, that's a signal worth paying attention to.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         DAILY BUNCH                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   RSS Feeds ──► Ingest ──► Canonicalize ──► Score ──► Display   │
-│                                                                 │
-│   • Poll 20+ curated sources                                    │
-│   • Unwrap tracking URLs (Mailchimp, Substack, bit.ly)          │
-│   • Normalize URLs (strip UTM, trailing slashes)                │
-│   • Calculate velocity (# of sources mentioning same link)      │
-│   • Rank by what's traveling across the web                     │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              DAILY BUNCH                                      │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌─────────────┐  ┌──────────────────────────────┐  ┌────────────────────┐  │
+│   │  FILTERS    │  │     MISSION CONTROL          │  │   RIGHT RAIL       │  │
+│   │             │  │                              │  │                    │  │
+│   │ Views       │  │  🔴 Breaking Now             │  │  ▶ TOP VIDEO       │  │
+│   │ Time        │  │  📈 Trending Grid            │  │  [thumbnail]       │  │
+│   │ Categories  │  │  ↑ Rising Entities           │  │                    │  │
+│   │ Entities    │  │  💎 Hidden Gems              │  │  📊 POLYMARKET     │  │
+│   │             │  │  ── All Signal Feed ──       │  │  [predictions]     │  │
+│   └─────────────┘  └──────────────────────────────┘  └────────────────────┘  │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
+
+## Mission Control 3.0
+
+The homepage is a full-screen **Mission Control** dashboard with three columns:
+
+### Left: Filter Sidebar
+- **Views**: Trending, Hidden Gems, Videos, Podcasts
+- **Time filters**: 6h, 24h, 7d, 30d
+- **Categories**: AI, Culture, Sports, Business, etc.
+- **Rising Entities**: People, orgs, and products trending now
+
+### Center: Main Feed
+- **Breaking Now**: High-velocity links (v5+) from the last 6 hours
+- **Trending Grid**: Multi-source links with velocity badges
+- **Rising Entities**: Clickable chips to filter by entity
+- **Hidden Gems**: Single-source finds from trusted Tier 1 sources
+- **All Signal**: Full velocity-ranked feed with view mode toggle
+
+### Right: Contextual Modules
+- **Top Video**: Highest-velocity YouTube/video content
+- **Polymarket**: Top prediction markets by trading volume
 
 ## Two Main Views
 
+### Trending (`/` and `/dashboard`)
+The default homepage. Velocity-ranked view with Breaking, Trending, Hidden Gems sections. Full Mission Control experience.
+
 ### Latest (`/links`)
 Chronological view of all ingested links, newest first. Simple, clean, no filters—just the stream of what's coming in.
-
-### Trending (`/dashboard`)
-Velocity-ranked view showing what multiple sources are linking to. Links with higher velocity (more sources mentioning them) rise to the top. This is where you find the signals.
 
 ## Features
 
@@ -40,16 +63,36 @@ Velocity-ranked view showing what multiple sources are linking to. Links with hi
 - **Title Cleaning**: Strips publication suffixes (`| NYTimes`), decodes HTML entities
 - **Blocked Content Detection**: Auto-detects and hides robot pages, paywalls, 404s
 
+### Content-Aware Display
+- **Media Type Detection**: Automatically detects videos, podcasts, newsletters, threads
+- **Video Cards**: Thumbnail-forward display for YouTube/Vimeo content
+- **Podcast Cards**: Duration and waveform visualization
+- **Story Clustering**: Groups related links into narrative stories via embedding similarity
+
+### Keyboard Navigation
+- `j/k` - Navigate up/down through links
+- `Enter` - Open selected link in new tab
+- `Cmd+K` - Command palette for quick actions
+- `1/2/3` - Switch view modes (Feed/Compact/Grid)
+- `?` - Show keyboard shortcuts help
+
 ### Source Management (`/admin/sources`)
 - Add RSS feeds with one click
 - **Fetch Now**: Manually trigger a fetch for any individual source
 - **Include Own Links**: Toggle whether to include the source's own articles
 - **Show on Dashboard**: Control which sources contribute to trending calculations
 - **Internal Domains**: Configure additional domains to treat as self-referential
+- **Source Tiers**: TIER_1 through TIER_4 for trust weighting
 - Track fetch errors with consecutive failure counts
 
+### Entity Tracking
+- **Named Entity Recognition**: Extracts people, organizations, products from content
+- **Velocity Trends**: Rising, stable, or falling indicators per entity
+- **Entity Pages**: `/entity/[slug]` shows all links mentioning an entity
+
 ### Mobile-Responsive Design
-- Collapsible sidebar for filters (on pages that have them)
+- Right rail hidden on mobile
+- Collapsible sidebar becomes bottom sheet
 - Responsive typography and spacing
 - Touch-friendly controls
 
@@ -63,13 +106,14 @@ Velocity-ranked view showing what multiple sources are linking to. Links with hi
 
 | Component | Technology |
 |-----------|------------|
-| Framework | Next.js 15 (App Router, Server Components) |
+| Framework | Next.js 16 (App Router, Server Components) |
 | Database | PostgreSQL via Prisma |
-| Hosting | Railway |
+| Hosting | Railway (with cron jobs) |
 | Email | Resend |
-| AI | Anthropic Claude (summaries, categorization) |
+| AI | Anthropic Claude (summaries, categorization, embeddings) |
 | Link Unwrapping | Firecrawl |
 | Styling | Tailwind CSS v4 |
+| External APIs | Polymarket Gamma API (prediction markets) |
 
 ## Data Model
 
@@ -141,11 +185,15 @@ Open [http://localhost:3000](http://localhost:3000).
 | `POST /api/admin/blacklist` | Add to blacklist |
 
 ### Cron (Protected)
-| Endpoint | Description |
-|----------|-------------|
-| `POST /api/ingest/poll` | Poll all RSS sources |
-| `POST /api/cron/enrich` | Enrich pending links (titles, metadata) |
-| `POST /api/cron/analyze` | AI analysis (summaries, categories) |
+| Endpoint | Schedule | Description |
+|----------|----------|-------------|
+| `/api/ingest/poll` | Every 15 min | Poll all RSS sources |
+| `/api/cron/enrich` | Every 5 min | Enrich pending links (titles, metadata) |
+| `/api/cron/analyze` | Every 10 min | AI analysis (summaries, categories) |
+| `/api/cron/cultural-analysis` | Every 2 hours | Cultural significance scoring |
+| `/api/cron/commentary` | Every 2 hours | AI commentary generation |
+| `/api/cron/trends` | Every 6 hours | Entity velocity calculation |
+| `/api/cron/clustering` | Every 6 hours | Story grouping via embeddings |
 
 ## Commands
 
@@ -170,22 +218,41 @@ Deployed on Railway with:
 ```
 src/
 ├── app/                    # Next.js App Router pages
-│   ├── links/              # Latest view
-│   ├── dashboard/          # Trending view
+│   ├── dashboard/          # Mission Control (homepage)
+│   ├── links/              # Latest chronological view
+│   ├── entity/[slug]/      # Entity detail pages
 │   ├── admin/              # Admin pages
-│   └── api/                # API routes
-├── components/             # React components
-│   ├── LinkCard.tsx        # Link display card
-│   ├── TrendingSection.tsx # Featured trending links
-│   ├── StatsTicker.tsx     # Stats bar
-│   └── FilterSidebar.tsx   # Collapsible filter sidebar
-├── lib/                    # Utilities
+│   └── api/
+│       ├── cron/           # Scheduled jobs
+│       │   ├── enrich/     # Link enrichment
+│       │   ├── analyze/    # AI analysis
+│       │   ├── clustering/ # Story grouping
+│       │   └── trends/     # Entity velocity
+│       └── ingest/         # RSS polling
+├── components/
+│   ├── MissionControlClient.tsx  # Main dashboard layout
+│   ├── FilterSidebar.tsx         # Left sidebar with filters
+│   ├── RightRail.tsx             # Right rail container
+│   ├── TopVideoModule.tsx        # Featured video widget
+│   ├── PolymarketModule.tsx      # Prediction markets widget
+│   ├── LinkCard.tsx              # Link display (feed/compact/grid)
+│   ├── VideoCard.tsx             # Video-specific card
+│   ├── PodcastCard.tsx           # Podcast-specific card
+│   ├── StoryCard.tsx             # Clustered story display
+│   ├── CommandPalette.tsx        # Cmd+K interface
+│   └── TrendingSection.tsx       # Trending grid
+├── hooks/
+│   └── useKeyboardNavigation.tsx # j/k navigation
+├── lib/
 │   ├── db.ts               # Prisma client
 │   ├── queries.ts          # Optimized SQL queries
+│   ├── polymarket.ts       # Polymarket API client
+│   ├── clustering.ts       # Story clustering logic
+│   ├── media-type.ts       # Content type detection
+│   ├── trends.ts           # Entity velocity tracking
 │   ├── rss.ts              # RSS parsing
 │   ├── canonicalize.ts     # URL normalization
-│   ├── enrich.ts           # Link enrichment
-│   └── title-utils.ts      # Title processing
+│   └── enrich.ts           # Link enrichment
 └── prisma/
     └── schema.prisma       # Database schema
 ```
@@ -196,4 +263,4 @@ Private project by [Edge City Expedition Company](https://edgecity.co)
 
 ---
 
-**Version 1.0.0** — January 2026
+**Version 3.0.0** — Mission Control — January 2026
