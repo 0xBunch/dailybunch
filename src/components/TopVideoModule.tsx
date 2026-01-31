@@ -55,7 +55,12 @@ function getYouTubeThumbnail(url: string): string | null {
 }
 
 export function TopVideoModule({ videos }: TopVideoModuleProps) {
-  if (videos.length === 0) {
+  // Deduplicate videos by ID
+  const uniqueVideos = videos.filter(
+    (video, index, self) => index === self.findIndex((v) => v.id === video.id)
+  );
+
+  if (uniqueVideos.length === 0) {
     return (
       <section>
         <div
@@ -86,7 +91,7 @@ export function TopVideoModule({ videos }: TopVideoModuleProps) {
       </div>
 
       <div className="space-y-4">
-        {videos.map((video, index) => {
+        {uniqueVideos.map((video, index) => {
           const title = video.title || video.fallbackTitle || "Untitled";
           const thumbnailUrl = getYouTubeThumbnail(video.canonicalUrl) || video.imageUrl;
           const timeAgo = formatTimeAgo(new Date(video.firstSeenAt));
