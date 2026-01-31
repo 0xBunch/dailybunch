@@ -24,3 +24,23 @@ endpoint = "/api/cron/enrich"
 name = "analyze-links"
 schedule = "*/10 * * * *"
 endpoint = "/api/cron/analyze"
+
+[[crons]]
+name = "cultural-analysis"
+schedule = "0 */2 * * *"
+endpoint = "/api/cron/cultural-analysis"
+
+[[crons]]
+name = "commentary"
+schedule = "30 */2 * * *"
+endpoint = "/api/cron/commentary"
+
+[[crons]]
+name = "trends"
+schedule = "0 */6 * * *"
+endpoint = "/api/cron/trends"
+
+[[crons]]
+name = "clustering"
+schedule = "30 */6 * * *"
+endpoint = "/api/cron/clustering"

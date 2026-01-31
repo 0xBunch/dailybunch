@@ -1,202 +1,373 @@
 /**
- * Trending Page
+ * Mission Control Dashboard
  *
- * Velocity-ranked links - what multiple sources are linking to.
+ * The central hub for cultural signal intelligence.
+ * Features: Breaking stories, trending grid, rising entities, hidden gems.
  */
 
 import prisma from "@/lib/db";
-import { getVelocityLinks, getTrendingLinks, getLinkEntities } from "@/lib/queries";
-import { LinkCard } from "@/components/LinkCard";
-import { StatsTicker } from "@/components/StatsTicker";
+import { getVelocityLinks, getTrendingLinks, getLinkEntities, getTopVideo } from "@/lib/queries";
+import { getRisingEntities, getHiddenGems } from "@/lib/trends";
+import { getTopMarkets } from "@/lib/polymarket";
+import { MissionControlClient } from "@/components/MissionControlClient";
 import { TrendingSection } from "@/components/TrendingSection";
+import { RightRail } from "@/components/RightRail";
+import { TopVideoModule } from "@/components/TopVideoModule";
+import { PolymarketModule } from "@/components/PolymarketModule";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default async function TrendingPage() {
-  // Default to 7 days of data
-  const timeFilter = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+export default async function DashboardPage() {
+  // Get time ranges
+  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  // Get stats (parallel)
-  const [totalLinks, activeSourceCount, recentLinks, trendingLinksData] =
-    await Promise.all([
-      prisma.link.count(),
-      prisma.source.count({ where: { active: true } }),
+  // Parallel data fetching
+  const [
+    breakingLinks,
+    trendingLinksData,
+    allLinks,
+    risingEntitiesData,
+    hiddenGemsData,
+    categoriesData,
+    counts,
+    topVideoData,
+    polymarketData,
+  ] = await Promise.all([
+    // Breaking: v5+, <6h
+    getTrendingLinks({ limit: 3, minVelocity: 5 }),
+    // Trending: v2+, <24h
+    getTrendingLinks({ limit: 6, minVelocity: 2 }),
+    // All velocity-ranked links
+    getVelocityLinks({ timeFilter: sevenDaysAgo, limit: 100 }),
+    // Rising entities
+    getRisingEntities(8),
+    // Hidden gems
+    getHiddenGems(5),
+    // Categories with counts
+    prisma.category.findMany({
+      select: {
+        name: true,
+        slug: true,
+        _count: { select: { links: true } },
+      },
+      orderBy: { name: "asc" },
+    }),
+    // Counts for sidebar
+    Promise.all([
       prisma.link.count({
-        where: { firstSeenAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+        where: {
+          isBlocked: false,
+          firstSeenAt: { gte: sevenDaysAgo },
+          OR: [
+            { title: { not: null } },
+            { fallbackTitle: { not: null } },
+          ],
+        },
       }),
-      getTrendingLinks({ limit: 5 }),
-    ]);
+      prisma.link.count({
+        where: {
+          isBlocked: false,
+          mediaType: "video",
+          firstSeenAt: { gte: sevenDaysAgo },
+        },
+      }),
+      prisma.link.count({
+        where: {
+          isBlocked: false,
+          mediaType: "podcast",
+          firstSeenAt: { gte: sevenDaysAgo },
+        },
+      }),
+    ]),
+    // Top video for right rail
+    getTopVideo({ minVelocity: 2, hoursLookback: 48 }),
+    // Polymarket data for right rail
+    getTopMarkets(5),
+  ]);
 
-  // Get cultural analysis data for trending links
-  const trendingLinkIds = trendingLinksData.map((l) => l.id);
-  const trendingLinksWithCultural = await prisma.link.findMany({
-    where: { id: { in: trendingLinkIds } },
-    select: {
-      id: true,
-      culturalWhyNow: true,
-      culturalPrediction: true,
-      commentary: true,
-    },
+  // Filter breaking to only include recent (< 6h)
+  const actualBreaking = breakingLinks.filter(
+    (l) => l.firstSeenAt >= sixHoursAgo
+  );
+
+  // Get cultural data for all links
+  const allLinkIds = [
+    ...breakingLinks.map((l) => l.id),
+    ...trendingLinksData.map((l) => l.id),
+    ...allLinks.map((l) => l.id),
+  ];
+
+  const [entityMap, culturalData, linksWithMedia] = await Promise.all([
+    getLinkEntities(allLinkIds),
+    prisma.link.findMany({
+      where: { id: { in: allLinkIds } },
+      select: {
+        id: true,
+        imageUrl: true,
+        mediaType: true,
+        culturalPrediction: true,
+        commentary: true,
+      },
+    }),
+    prisma.link.findMany({
+      where: { id: { in: allLinkIds } },
+      select: { id: true, imageUrl: true, mediaType: true },
+    }),
+  ]);
+
+  const culturalMap = new Map(culturalData.map((l) => [l.id, l]));
+  const mediaMap = new Map(linksWithMedia.map((l) => [l.id, l]));
+
+  // Format links for client component
+  const formatLink = (link: (typeof allLinks)[0]) => {
+    const cultural = culturalMap.get(link.id);
+    const media = mediaMap.get(link.id);
+    return {
+      id: link.id,
+      title: link.title,
+      fallbackTitle: link.fallbackTitle,
+      canonicalUrl: link.canonicalUrl,
+      domain: link.domain,
+      aiSummary: link.aiSummary,
+      imageUrl: media?.imageUrl ?? null,
+      mediaType: media?.mediaType ?? null,
+      firstSeenAt: link.firstSeenAt,
+      categoryName: link.categoryName,
+      velocity: link.velocity,
+      isTrending: link.isTrending,
+      sourceNames: link.sourceNames,
+      entities: (entityMap.get(link.id) || []).map((e) => ({
+        name: e.name,
+        type: e.type,
+      })),
+      culturalPrediction: cultural?.culturalPrediction ?? null,
+      commentary: cultural?.commentary ?? null,
+    };
+  };
+
+  // Format trending links with cultural data
+  const trendingLinks = trendingLinksData.map((link) => {
+    const cultural = culturalMap.get(link.id);
+    return {
+      ...link,
+      culturalWhyNow: cultural?.culturalPrediction ? undefined : null,
+      culturalPrediction: cultural?.culturalPrediction ?? null,
+      commentary: cultural?.commentary ?? null,
+    };
   });
-  const culturalMap = new Map(trendingLinksWithCultural.map((l) => [l.id, l]));
 
-  const trendingLinks = trendingLinksData.map((link) => ({
-    ...link,
-    ...culturalMap.get(link.id),
+  const formattedLinks = allLinks.map(formatLink);
+
+  // Format categories
+  const categories = categoriesData.map((c) => ({
+    name: c.name,
+    slug: c.slug,
+    count: c._count.links,
   }));
 
-  // Get velocity-ranked links
-  const links = await getVelocityLinks({
-    timeFilter,
-    limit: 100,
-  });
-
-  // Get entities for these links
-  const entityMap = await getLinkEntities(links.map((l) => l.id));
-
-  // Get cultural data for feed links
-  const feedLinkIds = links.map((l) => l.id);
-  const feedLinksWithCultural = await prisma.link.findMany({
-    where: { id: { in: feedLinkIds } },
-    select: {
-      id: true,
-      culturalPrediction: true,
-      commentary: true,
-    },
-  });
-  const feedCulturalMap = new Map(feedLinksWithCultural.map((l) => [l.id, l]));
-
-  // Combine data
-  const linksWithEntities = links.map((link) => ({
-    ...link,
-    entities: entityMap.get(link.id) || [],
-    ...feedCulturalMap.get(link.id),
+  // Format rising entities
+  const risingEntities = risingEntitiesData.map((e) => ({
+    name: e.name,
+    slug: e.name.toLowerCase().replace(/\s+/g, "-"),
+    type: e.type,
+    trend: "rising" as const,
+    count: e.velocityWeek,
   }));
+
+  const [allCount, videoCount, podcastCount] = counts;
+
+  // Format top video for right rail
+  const topVideo = topVideoData
+    ? {
+        id: topVideoData.id,
+        title: topVideoData.title,
+        fallbackTitle: topVideoData.fallbackTitle,
+        canonicalUrl: topVideoData.canonicalUrl,
+        domain: topVideoData.domain,
+        velocity: topVideoData.velocity,
+        sourceNames: topVideoData.sourceNames,
+        firstSeenAt: topVideoData.firstSeenAt,
+      }
+    : null;
 
   return (
-    <div className="min-h-dvh" style={{ background: "var(--background)" }}>
-      {/* Header */}
-      <header
-        className="border-b px-4 py-4 md:px-6"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <h1>
-            <Link
-              href="/"
-              className="text-xl md:text-2xl hover:opacity-70 transition-opacity"
-              style={{ color: "var(--text-primary)", textDecoration: "none" }}
+    <MissionControlClient
+      links={formattedLinks}
+      categories={categories}
+      risingEntities={risingEntities}
+      counts={{
+        all: allCount,
+        trending: trendingLinksData.length,
+        hiddenGems: hiddenGemsData.length,
+        videos: videoCount,
+        podcasts: podcastCount,
+      }}
+      rightRail={
+        <RightRail>
+          <TopVideoModule video={topVideo} />
+          <PolymarketModule markets={polymarketData} />
+        </RightRail>
+      }
+    >
+      {/* Breaking Now Section */}
+      {actualBreaking.length > 0 && (
+        <section className="border-b px-4 py-6 md:px-6" style={{ borderColor: "var(--border)" }}>
+          <div className="mb-4 flex items-center gap-2">
+            <span
+              className="inline-block size-2"
+              style={{ background: "var(--accent)", borderRadius: "50%" }}
+            />
+            <h2
+              className="text-xs uppercase tracking-wider"
+              style={{ color: "var(--accent)", fontFamily: "var(--font-mono)" }}
             >
-              Daily Bunch
-            </Link>
-          </h1>
-          <nav className="flex gap-6 text-sm">
-            <Link
-              href="/links"
-              className="hover:opacity-70 transition-opacity"
-              style={{ color: "var(--text-muted)", textDecoration: "none" }}
-            >
-              Latest
-            </Link>
-            <Link
-              href="/dashboard"
-              style={{
-                color: "var(--text-primary)",
-                textDecoration: "underline",
-                textUnderlineOffset: "4px",
-                textDecorationColor: "var(--text-primary)",
-              }}
-              aria-current="page"
-            >
-              Trending
-            </Link>
-            <Link
-              href="/admin"
-              className="hover:opacity-70 transition-opacity"
-              style={{ color: "var(--text-muted)", textDecoration: "none" }}
-            >
-              Admin
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      {/* Stats Ticker */}
-      <StatsTicker
-        stats={[
-          { value: totalLinks, label: "Links" },
-          { value: activeSourceCount, label: "Sources" },
-          { value: `+${recentLinks}`, label: "24h" },
-          {
-            value: trendingLinks.length,
-            label: "Trending",
-            highlight: trendingLinks.length > 0,
-          },
-        ]}
-      />
-
-      {/* Main content */}
-      <main className="max-w-4xl mx-auto px-4 py-8 md:px-6 md:py-10">
-        {/* Trending Section */}
-        {trendingLinks.length > 0 && <TrendingSection links={trendingLinks} />}
-
-        {/* Feed Header */}
-        <div
-          className="flex items-center gap-3 mb-6 pb-3 border-b"
-          style={{ borderColor: "var(--border)" }}
-        >
-          <h2
-            className="text-xs uppercase tracking-wider"
-            style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
-          >
-            By Velocity
-          </h2>
-          <span
-            className="text-xs tabular-nums"
-            style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
-          >
-            {linksWithEntities.length}
-          </span>
-        </div>
-
-        {linksWithEntities.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="mb-2" style={{ color: "var(--text-muted)" }}>
-              No trending links yet.
-            </p>
-            <p className="text-sm" style={{ color: "var(--text-faint)" }}>
-              Links appear here when multiple sources link to them.
-            </p>
+              Breaking Now
+            </h2>
           </div>
-        ) : (
-          <div
-            className="divide-y"
-            style={{ "--tw-divide-opacity": 1, borderColor: "var(--border-subtle)" } as React.CSSProperties}
-          >
-            {linksWithEntities.map((link) => (
-              <LinkCard
-                key={link.id}
-                id={link.id}
-                title={link.title}
-                fallbackTitle={link.fallbackTitle}
-                canonicalUrl={link.canonicalUrl}
-                domain={link.domain}
-                summary={link.aiSummary}
-                category={link.categoryName ? { name: link.categoryName } : null}
-                subcategory={link.subcategoryName ? { name: link.subcategoryName } : null}
-                entities={link.entities.map((e) => ({ entity: e }))}
-                velocity={link.velocity}
-                sources={link.sourceNames}
-                firstSeenAt={link.firstSeenAt}
-                isTrending={link.isTrending}
-                culturalPrediction={link.culturalPrediction}
-                commentary={link.commentary}
-              />
+
+          <div className="space-y-4">
+            {actualBreaking.map((link) => {
+              const cultural = culturalMap.get(link.id);
+              return (
+                <article
+                  key={link.id}
+                  className="p-4"
+                  style={{
+                    background: "var(--accent-subtle)",
+                    borderLeft: "3px solid var(--accent)",
+                  }}
+                >
+                  <h3 className="mb-2 text-xl leading-snug">
+                    <a
+                      href={link.canonicalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:opacity-70 transition-opacity"
+                      style={{ color: "var(--text-primary)", textDecoration: "none" }}
+                    >
+                      {link.title || link.fallbackTitle}
+                    </a>
+                  </h3>
+                  {cultural?.commentary && (
+                    <p
+                      className="mb-2 text-sm leading-relaxed"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      {cultural.commentary}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-3 text-xs">
+                    <span
+                      className="tabular-nums"
+                      style={{ color: "var(--accent)", fontFamily: "var(--font-mono)" }}
+                    >
+                      v{link.velocity}
+                    </span>
+                    <span style={{ color: "var(--text-faint)" }}>
+                      {link.sourceNames.slice(0, 3).join(", ")}
+                      {link.sourceNames.length > 3 && ` +${link.sourceNames.length - 3}`}
+                    </span>
+                    <span style={{ color: "var(--text-faint)" }}>·</span>
+                    <span style={{ color: "var(--text-faint)" }}>{link.domain}</span>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Trending Grid */}
+      {trendingLinks.length > 0 && (
+        <section className="border-b px-4 py-6 md:px-6" style={{ borderColor: "var(--border)" }}>
+          <TrendingSection links={trendingLinks} />
+        </section>
+      )}
+
+      {/* Rising Entities Chips */}
+      {risingEntities.length > 0 && (
+        <section className="border-b px-4 py-4 md:px-6" style={{ borderColor: "var(--border)" }}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className="mr-2 text-[10px] uppercase tracking-wider"
+              style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+            >
+              Rising:
+            </span>
+            {risingEntities.map((entity) => (
+              <Link
+                key={entity.slug}
+                href={`/entity/${entity.slug}`}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs transition-opacity hover:opacity-70"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-secondary)",
+                  textDecoration: "none",
+                }}
+              >
+                <span style={{ color: "var(--status-success)" }}>↑</span>
+                <span>
+                  {entity.type === "person" && "@"}
+                  {entity.type === "organization" && "+"}
+                  {entity.type === "product" && "#"}
+                  {entity.name}
+                </span>
+              </Link>
             ))}
           </div>
-        )}
-      </main>
-    </div>
+        </section>
+      )}
+
+      {/* Hidden Gems */}
+      {hiddenGemsData.length > 0 && (
+        <section className="border-b px-4 py-6 md:px-6" style={{ borderColor: "var(--border)" }}>
+          <div className="mb-3 flex items-center gap-2">
+            <span style={{ color: "var(--text-faint)" }}>💎</span>
+            <h2
+              className="text-xs uppercase tracking-wider"
+              style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
+            >
+              Hidden Gems
+            </h2>
+            <span
+              className="text-[10px]"
+              style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+            >
+              from trusted sources
+            </span>
+          </div>
+          <div className="space-y-2">
+            {hiddenGemsData.map((gem) => (
+              <div key={gem.id} className="flex items-start gap-3">
+                <span className="mt-1 text-xs" style={{ color: "var(--text-faint)" }}>
+                  •
+                </span>
+                <div className="min-w-0 flex-1">
+                  <a
+                    href={gem.canonicalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm hover:opacity-70 transition-opacity"
+                    style={{ color: "var(--text-primary)", textDecoration: "none" }}
+                  >
+                    {gem.title || gem.fallbackTitle}
+                  </a>
+                  <span
+                    className="ml-2 text-xs"
+                    style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+                  >
+                    {gem.sourceNames[0]}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </MissionControlClient>
   );
 }

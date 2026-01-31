@@ -15,7 +15,7 @@ import prisma from "@/lib/db";
 import { enrichLink, type LinkToEnrich } from "@/lib/enrich";
 import { isBlockedTitle } from "@/lib/title-utils";
 
-const BATCH_SIZE = 20;
+const BATCH_SIZE = 50; // Increased from 20 for faster processing
 const MAX_RETRIES = 5;
 
 interface EnrichmentStats {
@@ -184,8 +184,8 @@ async function processEnrichmentBatch(): Promise<EnrichmentStats> {
       stats.failed++;
     }
 
-    // Small delay between links
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // Small delay between links (reduced from 200ms for faster throughput)
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 
   return stats;

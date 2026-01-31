@@ -110,6 +110,9 @@ model Link {
   author        String?   // Article author if available
   publishedAt   DateTime? // Article publication date if available
 
+  // Content type detection
+  mediaType     String?   // article | video | podcast | newsletter | thread
+
   // AI-generated fields (Layer 1: Basic enrichment)
   aiSummary     String?
   aiAnalyzedAt  DateTime?
@@ -171,6 +174,7 @@ model Link {
   entities      LinkEntity[]
   digestItems   DigestItem[]
   weeklyReviewSources WeeklyReviewSource[]
+  storyLinks    StoryLink[]
 
   @@index([domain])
   @@index([categoryId])
@@ -182,6 +186,7 @@ model Link {
   @@index([enrichmentStatus])
   @@index([enrichmentLastAttempt])
   @@index([isBlocked])
+  @@index([mediaType])
 }
 
 model Mention {
@@ -288,6 +293,7 @@ model StoryLink {
   addedAt   DateTime @default(now())
 
   story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
 
   @@index([storyId])
   @@index([linkId])

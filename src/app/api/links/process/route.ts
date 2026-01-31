@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { canonicalizeUrl } from "@/lib/canonicalize";
+import { detectMediaType } from "@/lib/media-type";
 import { log } from "@/lib/logger";
 import { wrapError } from "@/lib/errors";
 import { withRetryResult, RetryPresets } from "@/lib/retry";
@@ -244,7 +245,9 @@ export async function POST(request: NextRequest) {
     // Step 5: Fetch metadata for new links
     const metadata = await fetchMetadata(canonResult.canonicalUrl);
 
-    // Step 6: Create new link with status tracking
+    // Step 6: Detect media type and create new link with status tracking
+    const mediaType = detectMediaType(canonResult.canonicalUrl);
+
     const newLink = await prisma.link.create({
       data: {
         canonicalUrl: canonResult.canonicalUrl,
@@ -257,6 +260,8 @@ export async function POST(request: NextRequest) {
         canonicalStatus: canonResult.status,
         canonicalError: canonResult.error || null,
         needsManualReview: canonResult.status === "failed",
+        // Content type
+        mediaType,
       },
     });
 

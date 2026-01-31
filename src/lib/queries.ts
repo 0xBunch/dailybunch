@@ -315,6 +315,127 @@ export async function getTrendingLinks(options: TrendingQueryOptions = {}): Prom
   }));
 }
 
+interface TopVideoQueryOptions {
+  minVelocity?: number;
+  hoursLookback?: number;
+}
+
+/**
+ * Get the top video by weighted velocity
+ *
+ * Returns the highest-velocity video link that:
+ * - Has mediaType = 'video'
+ * - Has velocity >= minVelocity (default: 2)
+ * - Was first seen within hoursLookback (default: 48 hours)
+ */
+export async function getTopVideo(options: TopVideoQueryOptions = {}): Promise<VelocityLink | null> {
+  const { minVelocity = 2, hoursLookback = 48 } = options;
+
+  const results = await prisma.$queryRawUnsafe<
+    Array<{
+      id: string;
+      title: string | null;
+      fallbackTitle: string | null;
+      canonicalUrl: string;
+      domain: string;
+      aiSummary: string | null;
+      imageUrl: string | null;
+      firstSeenAt: Date;
+      categoryName: string | null;
+      categorySlug: string | null;
+      subcategoryName: string | null;
+      velocity: bigint;
+      weightedVelocity: number;
+      hoursSinceFirstMention: number;
+      sourceNames: string[] | null;
+    }>
+  >(
+    `
+    SELECT
+      l.id,
+      l.title,
+      l."fallbackTitle",
+      l."canonicalUrl",
+      l.domain,
+      l."aiSummary",
+      l."imageUrl",
+      l."firstSeenAt",
+      c.name as "categoryName",
+      c.slug as "categorySlug",
+      sc.name as "subcategoryName",
+      COUNT(DISTINCT s.id) as velocity,
+      SUM(
+        (CASE
+          WHEN m."seenAt" >= NOW() - INTERVAL '24 hours' THEN 1.0
+          WHEN m."seenAt" >= NOW() - INTERVAL '48 hours' THEN 0.7
+          WHEN m."seenAt" >= NOW() - INTERVAL '72 hours' THEN 0.4
+          ELSE 0.2
+        END)
+        *
+        (COALESCE(s."trustScore", 5)::float / 10.0)
+        *
+        (CASE s.tier
+          WHEN 'TIER_1' THEN 1.0
+          WHEN 'TIER_2' THEN 0.7
+          WHEN 'TIER_3' THEN 0.5
+          WHEN 'TIER_4' THEN 0.2
+          ELSE 0.5
+        END)
+      )::float as "weightedVelocity",
+      EXTRACT(EPOCH FROM (NOW() - MIN(m."seenAt"))) / 3600 as "hoursSinceFirstMention",
+      ARRAY_AGG(DISTINCT s.name) FILTER (WHERE s.name IS NOT NULL) as "sourceNames"
+    FROM "Link" l
+    INNER JOIN "Mention" m ON m."linkId" = l.id
+    INNER JOIN "Source" s ON m."sourceId" = s.id
+      AND s."showOnDashboard" = true
+      AND (
+        s."baseDomain" IS NULL
+        OR (
+          l.domain != s."baseDomain"
+          AND NOT (l.domain = ANY(s."internalDomains"))
+        )
+      )
+    LEFT JOIN "Category" c ON l."categoryId" = c.id
+    LEFT JOIN "Subcategory" sc ON l."subcategoryId" = sc.id
+    WHERE l."isBlocked" = false
+      AND l."mediaType" = 'video'
+      AND l."firstSeenAt" >= NOW() - INTERVAL '${hoursLookback} hours'
+      AND (
+        (l.title IS NOT NULL AND l.title != '') OR
+        (l."fallbackTitle" IS NOT NULL AND l."fallbackTitle" != '')
+      )
+    GROUP BY l.id, c.name, c.slug, sc.name
+    HAVING COUNT(DISTINCT s.id) >= $1
+    ORDER BY "weightedVelocity" DESC, velocity DESC
+    LIMIT 1
+    `,
+    minVelocity
+  );
+
+  if (results.length === 0) {
+    return null;
+  }
+
+  const r = results[0];
+  return {
+    id: r.id,
+    title: r.title,
+    fallbackTitle: r.fallbackTitle,
+    canonicalUrl: r.canonicalUrl,
+    domain: r.domain,
+    aiSummary: r.aiSummary,
+    firstSeenAt: r.firstSeenAt,
+    categoryName: r.categoryName,
+    categorySlug: r.categorySlug,
+    subcategoryName: r.subcategoryName,
+    velocity: Number(r.velocity),
+    weightedVelocity: Number(r.weightedVelocity) || 0,
+    isTrending: true,
+    hoursSinceFirstMention: Number(r.hoursSinceFirstMention) || 0,
+    sourceNames: r.sourceNames || [],
+  };
+}
+
 /**
  * Get link entities for a list of link IDs
  */

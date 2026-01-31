@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { fetchMultipleFeeds } from "@/lib/rss";
 import { canonicalizeUrl } from "@/lib/canonicalize";
+import { detectMediaType } from "@/lib/media-type";
 import { log } from "@/lib/logger";
 
 // Extract base domain from URL (e.g., "kottke.org" from "feeds.kottke.org")
@@ -97,6 +98,9 @@ async function processLink(
     const finalTitle = title || result.title || null;
     const finalDescription = description || result.description || null;
 
+    // Detect media type from domain
+    const mediaType = detectMediaType(result.canonicalUrl);
+
     // Upsert the link with status tracking
     const link = await prisma.link.upsert({
       where: { canonicalUrl: result.canonicalUrl },
@@ -115,6 +119,8 @@ async function processLink(
           enrichmentSource: "html",
           enrichmentLastAttempt: new Date(),
         }),
+        // Update media type if not already set
+        mediaType,
       },
       create: {
         canonicalUrl: result.canonicalUrl,
@@ -134,6 +140,8 @@ async function processLink(
         enrichmentStatus: finalTitle ? "success" : "pending",
         enrichmentSource: finalTitle ? "html" : null,
         enrichmentLastAttempt: finalTitle ? new Date() : null,
+        // Content type
+        mediaType,
       },
     });
 
