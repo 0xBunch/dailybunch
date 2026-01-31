@@ -54,14 +54,14 @@ export default async function AdminPage() {
               className="hover:opacity-70 transition-opacity"
               style={{ color: "var(--muted)", textDecoration: "none" }}
             >
-              Home
+              Latest
             </Link>
             <Link
               href="/dashboard"
               className="hover:opacity-70 transition-opacity"
               style={{ color: "var(--muted)", textDecoration: "none" }}
             >
-              Feed
+              Trending
             </Link>
             <Link
               href="/admin"
@@ -71,6 +71,7 @@ export default async function AdminPage() {
                 textDecoration: "underline",
                 textUnderlineOffset: "4px",
               }}
+              aria-current="page"
             >
               Admin
             </Link>

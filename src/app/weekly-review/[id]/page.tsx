@@ -204,19 +204,10 @@ export default function WeeklyReviewPage({
           </h1>
           <nav className="flex gap-6 text-sm">
             <Link href="/links" className="text-neutral-600 hover:text-neutral-900">
-              Home
+              Latest
             </Link>
             <Link href="/dashboard" className="text-neutral-600 hover:text-neutral-900">
-              Feed
-            </Link>
-            <Link href="/digests" className="text-neutral-600 hover:text-neutral-900">
-              Digests
-            </Link>
-            <Link
-              href="/weekly-review"
-              className="font-medium underline underline-offset-4"
-            >
-              Weekly Review
+              Trending
             </Link>
             <Link href="/admin" className="text-neutral-600 hover:text-neutral-900">
               Admin

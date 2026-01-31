@@ -75,13 +75,10 @@ export default function NewLinkPage() {
           <h1><Link href="/" className="text-2xl hover:text-neutral-700 !text-neutral-900 !no-underline">Daily Bunch</Link></h1>
           <nav className="flex gap-6 text-sm">
             <Link href="/links" className="text-neutral-600 hover:text-neutral-900">
-              Home
+              Latest
             </Link>
             <Link href="/dashboard" className="text-neutral-600 hover:text-neutral-900">
-              Feed
-            </Link>
-            <Link href="/links/new" className="font-medium underline underline-offset-4">
-              Add Link
+              Trending
             </Link>
             <Link href="/admin" className="text-neutral-600 hover:text-neutral-900">
               Admin

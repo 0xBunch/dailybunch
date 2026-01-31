@@ -37,14 +37,14 @@ export default async function BlacklistAdminPage() {
               className="hover:opacity-70 transition-opacity"
               style={{ color: "var(--muted)", textDecoration: "none" }}
             >
-              Home
+              Latest
             </Link>
             <Link
               href="/dashboard"
               className="hover:opacity-70 transition-opacity"
               style={{ color: "var(--muted)", textDecoration: "none" }}
             >
-              Feed
+              Trending
             </Link>
             <Link
               href="/admin"
