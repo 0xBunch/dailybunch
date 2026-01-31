@@ -6,6 +6,7 @@
   --foreground: #111111;
   --surface: #fafafa;
   --surface-elevated: #ffffff;
+  --surface-cream: #f8f7f4;
   --border: #e8e8e8;
   --border-subtle: #f0f0f0;
 
@@ -14,15 +15,19 @@
   --text-secondary: #555555;
   --text-muted: #888888;
   --text-faint: #aaaaaa;
+  --ink: #111111;
+  --muted: #888888;
 
   /* Accent - single warm accent for emphasis */
   --accent: #c45d2c;
   --accent-subtle: rgba(196, 93, 44, 0.08);
+  --accent-warm: #c45d2c;
 
   /* Status (muted, editorial) */
   --status-success: #4a6741;
   --status-warning: #9a7b2c;
   --status-error: #944444;
+  --status-muted: #888888;
 
   /* Typography */
   --font-headline: "Special Gothic Expanded One", "Times New Roman", Times, serif;
