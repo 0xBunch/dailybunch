@@ -82,8 +82,8 @@ export default async function DashboardPage() {
         },
       }),
     ]),
-    // Top video for right rail
-    getTopVideo({ minVelocity: 2, hoursLookback: 48 }),
+    // Top video for right rail (lowered to v1 until we have more cross-source videos)
+    getTopVideo({ minVelocity: 1, hoursLookback: 168 }),
     // Polymarket data for right rail
     getTopMarkets(5),
   ]);
