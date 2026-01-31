@@ -530,7 +530,15 @@ export async function getTopVideos(options: TopVideoQueryOptions = {}): Promise<
     limit
   );
 
-  return results.map((r) => ({
+  // Deduplicate by ID (in case JOINs produce duplicates)
+  const seen = new Set<string>();
+  const unique = results.filter((r) => {
+    if (seen.has(r.id)) return false;
+    seen.add(r.id);
+    return true;
+  });
+
+  return unique.map((r) => ({
     id: r.id,
     title: r.title,
     fallbackTitle: r.fallbackTitle,
