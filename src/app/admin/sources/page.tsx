@@ -365,6 +365,22 @@ export default async function SourcesAdminPage() {
                         Own Links {source.includeOwnLinks ? "ON" : "OFF"}
                       </button>
                     </form>
+                    {source.type === "rss" && source.url && (
+                      <form action={`/api/admin/sources/${source.id}/fetch`} method="POST">
+                        <button
+                          type="submit"
+                          className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            background: "var(--ink)",
+                            color: "#fff",
+                            border: "1px solid var(--ink)",
+                          }}
+                        >
+                          Fetch Now
+                        </button>
+                      </form>
+                    )}
                     <form action={`/api/admin/sources/${source.id}`} method="POST" className="ml-auto">
                       <input type="hidden" name="active" value={source.active ? "false" : "true"} />
                       <button
