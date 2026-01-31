@@ -392,13 +392,24 @@ export default async function SourcesAdminPage() {
                           border: "1px solid var(--border)",
                           color: "var(--ink)",
                         }}
-                        onChange={(e) => e.target.form?.requestSubmit()}
                       >
                         <option value="TIER_1">T1 (10)</option>
                         <option value="TIER_2">T2 (7)</option>
                         <option value="TIER_3">T3 (5)</option>
                         <option value="TIER_4">T4 (2)</option>
                       </select>
+                      <button
+                        type="submit"
+                        className="text-xs px-2 py-1 transition-opacity hover:opacity-80"
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          background: "var(--ink)",
+                          color: "#fff",
+                          border: "none",
+                        }}
+                      >
+                        Set
+                      </button>
                     </form>
                     {source.type === "rss" && source.url && (
                       <form action={`/api/admin/sources/${source.id}/fetch`} method="POST">
