@@ -4,93 +4,89 @@ A cultural signal intelligence platform that surfaces what's traveling across th
 
 **Live at:** [dailybunch.com](https://dailybunch.com)
 
-## How It Works
+## Overview
+
+Daily Bunch monitors RSS feeds from newsletters, blogs, and publications to identify links that multiple sources are mentioning. When several tastemakers point at the same article, that's a signal worth paying attention to.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         DAILY BUNCH                              │
+│                         DAILY BUNCH                             │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   1. INGEST                                                      │
-│   ─────────                                                      │
-│   RSS feeds from newsletters, blogs, and publications            │
-│   are polled on a schedule. Links are extracted from content.    │
-│                                                                  │
-│   2. CANONICALIZE                                                │
-│   ───────────────                                                │
-│   Tracking wrappers (Mailchimp, Substack, bit.ly) are unwrapped. │
-│   URLs are normalized (strip UTM params, trailing slashes).      │
-│                                                                  │
-│   3. SCORE                                                       │
-│   ────────                                                       │
-│   "Velocity" = how many sources linked to the same article.      │
-│   Higher velocity = more tastemakers are pointing at it.         │
-│                                                                  │
-│   4. CURATE                                                      │
-│   ─────────                                                      │
-│   Dashboard shows velocity-ranked links with filters.            │
-│   Select links, add notes, write a headline.                     │
-│                                                                  │
-│   5. PUBLISH                                                     │
-│   ─────────                                                      │
-│   One click sends a formatted digest via email.                  │
-│                                                                  │
+│                                                                 │
+│   RSS Feeds ──► Ingest ──► Canonicalize ──► Score ──► Display   │
+│                                                                 │
+│   • Poll 20+ curated sources                                    │
+│   • Unwrap tracking URLs (Mailchimp, Substack, bit.ly)          │
+│   • Normalize URLs (strip UTM, trailing slashes)                │
+│   • Calculate velocity (# of sources mentioning same link)      │
+│   • Rank by what's traveling across the web                     │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## Two Main Views
+
+### Latest (`/links`)
+Chronological view of all ingested links, newest first. Simple, clean, no filters—just the stream of what's coming in.
+
+### Trending (`/dashboard`)
+Velocity-ranked view showing what multiple sources are linking to. Links with higher velocity (more sources mentioning them) rise to the top. This is where you find the signals.
+
 ## Features
 
-### Home (`/links`)
-- Browse all ingested links with search
-- Filter by category, source, sort by newest/oldest/velocity
-- Pagination for large datasets
-- Clean, editorial presentation
+### Intelligent Link Processing
+- **URL Canonicalization**: Unwraps tracking redirects (Mailchimp, Substack, bit.ly, etc.)
+- **Smart Deduplication**: Same article from different wrapped URLs gets unified
+- **Title Cleaning**: Strips publication suffixes (`| NYTimes`), decodes HTML entities
+- **Blocked Content Detection**: Auto-detects and hides robot pages, paywalls, 404s
 
-### Feed (`/dashboard`)
-- Links ranked by velocity (number of sources that mentioned them)
-- Filter by category, entity, and time range (24h, 48h, 7d)
-- AI-generated summaries for each link
-- Quick add to digest workflow
+### Source Management (`/admin/sources`)
+- Add RSS feeds with one click
+- **Fetch Now**: Manually trigger a fetch for any individual source
+- **Include Own Links**: Toggle whether to include the source's own articles
+- **Show on Dashboard**: Control which sources contribute to trending calculations
+- **Internal Domains**: Configure additional domains to treat as self-referential
+- Track fetch errors with consecutive failure counts
 
-### Sources Management (`/admin/sources`)
-- Configure RSS feeds and newsletter sources
-- Toggle "Include Own Links" per source:
-  - **OFF** (default): Only scrape external links the source mentions
-  - **ON**: Include the source's own articles on the scoreboard
-- Toggle "Show on Dashboard" to include/exclude sources from Feed view
-- Track fetch errors and consecutive failures
+### Mobile-Responsive Design
+- Collapsible sidebar for filters (on pages that have them)
+- Responsive typography and spacing
+- Touch-friendly controls
 
-### Digest Builder (`/digests`)
-- Create curated digests from selected links
-- Add editorial notes per link
-- Send via Resend email API
-
-### Admin Panel (`/admin`)
+### Admin Tools (`/admin`)
 - Sources, Entities, Blacklist management
-- Trigger manual RSS polls and AI analysis
-- View pending entity suggestions
+- Manual RSS poll trigger
+- AI analysis queue management
+- Entity suggestion review
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
-| Framework | Next.js 16 (App Router, Server Components) |
+| Framework | Next.js 15 (App Router, Server Components) |
 | Database | PostgreSQL via Prisma |
 | Hosting | Railway |
-| Email Delivery | Resend |
-| AI Analysis | Google Gemini Flash |
+| Email | Resend |
+| AI | Anthropic Claude (summaries, categorization) |
 | Link Unwrapping | Firecrawl |
 | Styling | Tailwind CSS v4 |
 
 ## Data Model
 
 ```
-Source (RSS feed / newsletter)
-  └── SourceItem (individual posts from the source)
+Source (RSS feed)
+  └── SourceItem (individual posts from the feed)
         └── extracts → Link (external articles mentioned)
-                         └── Mention (tracks which source, when)
-                         └── Entity (people, orgs, products tagged)
+                         ├── Mention (tracks which source, when)
+                         ├── Entity (people, orgs, products)
+                         └── Category / Subcategory
 ```
+
+### Key Concepts
+
+- **Velocity**: Number of distinct sources that linked to an article
+- **Weighted Velocity**: Recent mentions weighted higher (24h = 1.0, 48h = 0.7, 72h = 0.4)
+- **Trending**: Links with velocity ≥ 2 AND weighted velocity ≥ 1.5
 
 ## Environment Variables
 
@@ -98,18 +94,17 @@ Source (RSS feed / newsletter)
 # Database
 DATABASE_URL=postgresql://...
 
-# AI
+# AI (for summaries and categorization)
 ANTHROPIC_API_KEY=...
 
 # Link scraping
 FIRECRAWL_API_KEY=...
 
-# Email
+# Email delivery
 RESEND_API_KEY=...
 RESEND_FROM_EMAIL=digest@dailybunch.com
-RESEND_AUDIENCE_ID=...
 
-# Cron protection
+# Cron job authentication
 CRON_SECRET=...
 ```
 
@@ -127,34 +122,78 @@ npm run db:seed
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the dashboard.
+Open [http://localhost:3000](http://localhost:3000).
 
 ## API Endpoints
 
+### Public
 | Endpoint | Description |
 |----------|-------------|
-| `POST /api/ingest/poll` | Trigger RSS polling (cron) |
-| `POST /api/cron/analyze` | Run AI analysis on pending links |
-| `GET /api/links` | List links with velocity |
-| `POST /api/digests` | Create new digest |
-| `POST /api/digests/[id]/send` | Send digest via email |
-| `GET /api/health` | Health check (Railway) |
+| `GET /links` | Latest view (chronological) |
+| `GET /dashboard` | Trending view (velocity-ranked) |
+
+### Admin
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/admin/sources` | Add new RSS source |
+| `POST /api/admin/sources/[id]` | Update source settings |
+| `POST /api/admin/sources/[id]/fetch` | Fetch single source manually |
+| `POST /api/admin/blacklist` | Add to blacklist |
+
+### Cron (Protected)
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/ingest/poll` | Poll all RSS sources |
+| `POST /api/cron/enrich` | Enrich pending links (titles, metadata) |
+| `POST /api/cron/analyze` | AI analysis (summaries, categories) |
+
+## Commands
+
+```bash
+npm run dev          # Development server
+npm run build        # Production build
+npm run start        # Start production server
+npm run db:push      # Push schema to database
+npm run db:seed      # Seed initial data
+npm run db:studio    # Open Prisma Studio
+```
 
 ## Deployment
 
 Deployed on Railway with:
 - PostgreSQL database
-- Nixpacks builder (Node.js 20+)
+- Cron jobs for RSS polling (every 15 min) and enrichment (every 5 min)
 - Health checks at `/api/health`
 
-```bash
-# Build
-npm run build
+## Project Structure
 
-# Start
-npm run start
+```
+src/
+├── app/                    # Next.js App Router pages
+│   ├── links/              # Latest view
+│   ├── dashboard/          # Trending view
+│   ├── admin/              # Admin pages
+│   └── api/                # API routes
+├── components/             # React components
+│   ├── LinkCard.tsx        # Link display card
+│   ├── TrendingSection.tsx # Featured trending links
+│   ├── StatsTicker.tsx     # Stats bar
+│   └── FilterSidebar.tsx   # Collapsible filter sidebar
+├── lib/                    # Utilities
+│   ├── db.ts               # Prisma client
+│   ├── queries.ts          # Optimized SQL queries
+│   ├── rss.ts              # RSS parsing
+│   ├── canonicalize.ts     # URL normalization
+│   ├── enrich.ts           # Link enrichment
+│   └── title-utils.ts      # Title processing
+└── prisma/
+    └── schema.prisma       # Database schema
 ```
 
 ## License
 
 Private project by [Edge City Expedition Company](https://edgecity.co)
+
+---
+
+**Version 1.0.0** — January 2026
