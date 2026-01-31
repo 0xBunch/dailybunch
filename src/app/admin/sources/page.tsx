@@ -6,6 +6,7 @@
 
 import prisma from "@/lib/db";
 import Link from "next/link";
+import { DeleteSourceButton } from "@/components/DeleteSourceButton";
 
 export const dynamic = "force-dynamic";
 
@@ -442,6 +443,11 @@ export default async function SourcesAdminPage() {
                         {source.active ? "Deactivate" : "Activate"}
                       </button>
                     </form>
+                    <DeleteSourceButton
+                      sourceId={source.id}
+                      sourceName={source.name}
+                      mentionCount={source._count.mentions}
+                    />
                   </div>
 
                   {/* Internal Domains */}

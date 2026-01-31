@@ -164,12 +164,12 @@ export function FilterSidebar({
         >
           Time
         </div>
-        <div className="flex gap-1">
+        <div className="grid grid-cols-4 gap-1">
           {timeOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => updateFilter("time", opt.value)}
-              className="flex-1 px-2 py-1.5 text-xs transition-colors"
+              className="py-1.5 text-xs transition-colors"
               style={{
                 background: currentTime === opt.value ? "var(--text-primary)" : "transparent",
                 color: currentTime === opt.value ? "var(--background)" : "var(--text-muted)",
@@ -191,12 +191,12 @@ export function FilterSidebar({
         >
           Velocity
         </div>
-        <div className="flex gap-1">
+        <div className="grid grid-cols-4 gap-1">
           {velocityOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => updateFilter("velocity", opt.value)}
-              className="flex-1 px-2 py-1.5 text-xs transition-colors"
+              className="py-1.5 text-xs transition-colors"
               style={{
                 background: currentVelocity === opt.value ? "var(--text-primary)" : "transparent",
                 color: currentVelocity === opt.value ? "var(--background)" : "var(--text-muted)",

@@ -2,6 +2,7 @@
  * Source Settings API
  *
  * Update source settings like includeOwnLinks and showOnDashboard toggles.
+ * DELETE to remove a source and all links that came exclusively from it.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -68,6 +69,74 @@ export async function POST(
     console.error("Failed to update source:", error);
     return NextResponse.json(
       { error: "Failed to update source" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/admin/sources/[id]
+ *
+ * Deletes a source and all links that came exclusively from it.
+ * Links mentioned by other sources are preserved.
+ */
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  try {
+    // First, find the source to make sure it exists
+    const source = await prisma.source.findUnique({
+      where: { id },
+      select: { id: true, name: true },
+    });
+
+    if (!source) {
+      return NextResponse.json({ error: "Source not found" }, { status: 404 });
+    }
+
+    // Find links that are ONLY mentioned by this source
+    // These are links where all mentions have sourceId = this source
+    const orphanedLinks = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT l.id
+      FROM "Link" l
+      WHERE EXISTS (
+        SELECT 1 FROM "Mention" m WHERE m."linkId" = l.id AND m."sourceId" = ${id}
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM "Mention" m WHERE m."linkId" = l.id AND m."sourceId" != ${id}
+      )
+    `;
+
+    const orphanedLinkIds = orphanedLinks.map((l) => l.id);
+
+    // Delete orphaned links (cascades to mentions, linkEntities, storyLinks, etc.)
+    if (orphanedLinkIds.length > 0) {
+      await prisma.link.deleteMany({
+        where: { id: { in: orphanedLinkIds } },
+      });
+    }
+
+    // Now delete the source (cascades to remaining mentions and sourceItems)
+    await prisma.source.delete({
+      where: { id },
+    });
+
+    console.log(
+      `[Admin] Deleted source "${source.name}" and ${orphanedLinkIds.length} orphaned links`
+    );
+
+    return NextResponse.json({
+      success: true,
+      deletedSource: source.name,
+      deletedLinks: orphanedLinkIds.length,
+    });
+  } catch (error) {
+    console.error("Failed to delete source:", error);
+    return NextResponse.json(
+      { error: "Failed to delete source" },
       { status: 500 }
     );
   }
