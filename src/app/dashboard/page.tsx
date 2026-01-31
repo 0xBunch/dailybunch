@@ -6,9 +6,10 @@
  */
 
 import prisma from "@/lib/db";
-import { getVelocityLinks, getTrendingLinks, getLinkEntities, getTopVideo } from "@/lib/queries";
+import { getVelocityLinks, getTrendingLinks, getLinkEntities, getTopVideos } from "@/lib/queries";
 import { getRisingEntities, getHiddenGems } from "@/lib/trends";
 import { getTopMarkets } from "@/lib/polymarket";
+import { getDisplayTitle } from "@/lib/title-utils";
 import { MissionControlClient } from "@/components/MissionControlClient";
 import { TrendingSection } from "@/components/TrendingSection";
 import { RightRail } from "@/components/RightRail";
@@ -33,7 +34,7 @@ export default async function DashboardPage() {
     hiddenGemsData,
     categoriesData,
     counts,
-    topVideoData,
+    topVideosData,
     polymarketData,
   ] = await Promise.all([
     // Breaking: v5+, <6h
@@ -82,8 +83,8 @@ export default async function DashboardPage() {
         },
       }),
     ]),
-    // Top video for right rail (lowered to v1 until we have more cross-source videos)
-    getTopVideo({ minVelocity: 1, hoursLookback: 168 }),
+    // Top videos for right rail (lowered to v1 until we have more cross-source videos)
+    getTopVideos({ minVelocity: 1, hoursLookback: 168, limit: 3 }),
     // Polymarket data for right rail
     getTopMarkets(5),
   ]);
@@ -179,19 +180,17 @@ export default async function DashboardPage() {
 
   const [allCount, videoCount, podcastCount] = counts;
 
-  // Format top video for right rail
-  const topVideo = topVideoData
-    ? {
-        id: topVideoData.id,
-        title: topVideoData.title,
-        fallbackTitle: topVideoData.fallbackTitle,
-        canonicalUrl: topVideoData.canonicalUrl,
-        domain: topVideoData.domain,
-        velocity: topVideoData.velocity,
-        sourceNames: topVideoData.sourceNames,
-        firstSeenAt: topVideoData.firstSeenAt,
-      }
-    : null;
+  // Format top videos for right rail
+  const topVideos = topVideosData.map((v) => ({
+    id: v.id,
+    title: v.title,
+    fallbackTitle: v.fallbackTitle,
+    canonicalUrl: v.canonicalUrl,
+    domain: v.domain,
+    velocity: v.velocity,
+    sourceNames: v.sourceNames,
+    firstSeenAt: v.firstSeenAt,
+  }));
 
   return (
     <MissionControlClient
@@ -207,7 +206,7 @@ export default async function DashboardPage() {
       }}
       rightRail={
         <RightRail>
-          <TopVideoModule video={topVideo} />
+          <TopVideoModule videos={topVideos} />
           <PolymarketModule markets={polymarketData} />
         </RightRail>
       }
@@ -248,7 +247,12 @@ export default async function DashboardPage() {
                       className="hover:opacity-70 transition-opacity"
                       style={{ color: "var(--text-primary)", textDecoration: "none" }}
                     >
-                      {link.title || link.fallbackTitle}
+                      {getDisplayTitle({
+                        title: link.title,
+                        fallbackTitle: link.fallbackTitle,
+                        canonicalUrl: link.canonicalUrl,
+                        domain: link.domain,
+                      }).text}
                     </a>
                   </h3>
                   {cultural?.commentary && (
@@ -354,7 +358,12 @@ export default async function DashboardPage() {
                     className="text-sm hover:opacity-70 transition-opacity"
                     style={{ color: "var(--text-primary)", textDecoration: "none" }}
                   >
-                    {gem.title || gem.fallbackTitle}
+                    {getDisplayTitle({
+                      title: gem.title,
+                      fallbackTitle: gem.fallbackTitle,
+                      canonicalUrl: gem.canonicalUrl,
+                      domain: gem.domain,
+                    }).text}
                   </a>
                   <span
                     className="ml-2 text-xs"

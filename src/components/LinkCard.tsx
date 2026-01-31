@@ -6,7 +6,6 @@
  * Minimalist editorial aesthetic: restrained, text-forward, serif headlines.
  */
 
-import { CategoryBadge } from "./CategoryBadge";
 import { EntityChip } from "./EntityChip";
 import { VelocityIndicator } from "./VelocityIndicator";
 import { getDisplayTitle } from "@/lib/title-utils";
@@ -52,7 +51,6 @@ export function LinkCard({
   firstSeenAt,
   selected = false,
   onSelect,
-  isTrending = false,
   culturalPrediction,
   commentary,
   variant = "feed",
@@ -203,40 +201,24 @@ export function LinkCard({
     );
   }
 
-  // Default feed variant
+  // Default feed variant - card style matching TrendingCard
   return (
-    <article
-      className="group py-5"
+    <a
+      href={canonicalUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block p-5 transition-all hover:translate-x-1"
       data-feed-index={feedIndex}
       style={{
-        background: isSelected ? "var(--accent-subtle)" : "transparent",
+        background: isSelected ? "var(--accent-subtle)" : "var(--surface-elevated)",
+        border: "1px solid var(--border)",
+        textDecoration: "none",
       }}
     >
-      <div className="flex items-start gap-4">
-        {/* Selection checkbox */}
-        {onSelect && (
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={(e) => onSelect(id, e.target.checked)}
-            aria-label={`Select ${displayTitle.text}`}
-            className="mt-1.5 size-4 shrink-0"
-            style={{ accentColor: "var(--text-primary)" }}
-          />
-        )}
-
+      <div className="flex items-start justify-between gap-6">
         <div className="min-w-0 flex-1">
           {/* Meta row */}
           <div className="mb-2 flex items-center gap-3">
-            {isTrending && (
-              <span
-                className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider"
-                style={{ color: "var(--accent)" }}
-              >
-                <span>●</span>
-                <span>Trending</span>
-              </span>
-            )}
             {culturalPrediction && (
               <span
                 className="text-[10px] uppercase tracking-wider"
@@ -254,41 +236,21 @@ export function LinkCard({
                 {culturalPrediction === "fading" && "↓ Fading"}
               </span>
             )}
-            {category && <CategoryBadge name={category.name} />}
-            <VelocityIndicator count={velocity} sources={sources} />
-            <time
-              dateTime={firstSeenAt.toISOString()}
-              className="text-[11px]"
-              style={{ color: "var(--text-faint)" }}
-            >
-              {formatRelativeTime(firstSeenAt)}
-            </time>
           </div>
 
           {/* Title */}
-          <h3 className="mb-1 text-lg leading-snug">
-            <a
-              href={canonicalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:opacity-70 transition-opacity"
+          <h3
+            className="mb-2 text-lg leading-snug"
+            style={{ color: "var(--text-primary)" }}
+          >
+            <span
               style={{
-                color: "var(--text-primary)",
-                textDecoration: "none",
                 fontStyle: displayTitle.source === "generated" ? "italic" : "normal",
               }}
             >
               {displayTitle.text}
-            </a>
+            </span>
           </h3>
-
-          {/* Domain */}
-          <p
-            className="mb-2 text-sm"
-            style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
-          >
-            {domain}
-          </p>
 
           {/* Summary or Commentary */}
           {(commentary || summary) && (
@@ -300,9 +262,34 @@ export function LinkCard({
             </p>
           )}
 
+          {/* Stats row */}
+          <div
+            className="flex items-center gap-3 text-xs"
+            style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
+          >
+            <span>{domain}</span>
+            <span style={{ color: "var(--border)" }}>·</span>
+            <span className="tabular-nums">
+              {velocity} {velocity === 1 ? "source" : "sources"}
+            </span>
+            <span style={{ color: "var(--border)" }}>·</span>
+            <span>{formatRelativeTime(firstSeenAt)}</span>
+          </div>
+
+          {/* Source attribution */}
+          {sources.length > 0 && (
+            <div
+              className="mt-3 pt-3 border-t text-xs"
+              style={{ borderColor: "var(--border-subtle)", color: "var(--text-faint)" }}
+            >
+              {sources.slice(0, 4).join(" · ")}
+              {sources.length > 4 && ` +${sources.length - 4}`}
+            </div>
+          )}
+
           {/* Entities */}
           {entities.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               {entities.slice(0, 4).map(({ entity }) => (
                 <EntityChip key={entity.name} name={entity.name} type={entity.type} />
               ))}
@@ -314,8 +301,22 @@ export function LinkCard({
             </div>
           )}
         </div>
+
+        {/* Category badge */}
+        {category && (
+          <span
+            className="shrink-0 text-[10px] px-2 py-1 uppercase tracking-wider"
+            style={{
+              background: "var(--surface)",
+              color: "var(--text-muted)",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            {category.name}
+          </span>
+        )}
       </div>
-    </article>
+    </a>
   );
 }
 
