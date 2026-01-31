@@ -54,10 +54,28 @@ function getYouTubeThumbnail(url: string): string | null {
   return null;
 }
 
+// Extract YouTube video ID for deduplication
+function getVideoKey(url: string): string {
+  try {
+    const parsed = new URL(url);
+    // YouTube
+    if (parsed.hostname.includes("youtube.com")) {
+      return `yt:${parsed.searchParams.get("v")}`;
+    }
+    if (parsed.hostname === "youtu.be") {
+      return `yt:${parsed.pathname.slice(1)}`;
+    }
+    // For non-YouTube, use the full URL
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 export function TopVideoModule({ videos }: TopVideoModuleProps) {
-  // Deduplicate videos by ID
+  // Deduplicate videos by video key (YouTube ID or URL)
   const uniqueVideos = videos.filter(
-    (video, index, self) => index === self.findIndex((v) => v.id === video.id)
+    (video, index, self) => index === self.findIndex((v) => getVideoKey(v.canonicalUrl) === getVideoKey(video.canonicalUrl))
   );
 
   if (uniqueVideos.length === 0) {
