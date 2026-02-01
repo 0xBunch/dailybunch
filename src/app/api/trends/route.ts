@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getRisingLinks, getHiddenGems, getTopEntities, getRisingEntities } from "@/lib/trends";
+import { getRisingLinks, getTopEntities, getRisingEntities } from "@/lib/trends";
 
 export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get("type") || "all";
@@ -17,12 +17,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           success: true,
           data: await getRisingLinks(limit),
-        });
-
-      case "hidden-gems":
-        return NextResponse.json({
-          success: true,
-          data: await getHiddenGems(limit),
         });
 
       case "top-entities":
@@ -40,9 +34,8 @@ export async function GET(request: NextRequest) {
 
       case "all":
       default:
-        const [rising, hiddenGems, topEntities, risingEntities] = await Promise.all([
+        const [rising, topEntities, risingEntities] = await Promise.all([
           getRisingLinks(5),
-          getHiddenGems(5),
           getTopEntities("week", 10),
           getRisingEntities(5),
         ]);
@@ -51,7 +44,6 @@ export async function GET(request: NextRequest) {
           success: true,
           data: {
             rising,
-            hiddenGems,
             topEntities,
             risingEntities,
           },

@@ -12,7 +12,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 
-type ViewType = "all" | "trending" | "hidden-gems" | "videos" | "podcasts" | "saved";
+type ViewType = "all" | "trending" | "videos" | "podcasts" | "saved";
 type TimeFilter = "6h" | "24h" | "7d" | "30d" | "all";
 type VelocityFilter = "any" | "2" | "3" | "5";
 
@@ -36,7 +36,6 @@ interface FilterSidebarProps {
   counts?: {
     all?: number;
     trending?: number;
-    hiddenGems?: number;
     videos?: number;
     podcasts?: number;
     saved?: number;
@@ -81,7 +80,6 @@ export function FilterSidebar({
   const views = [
     { id: "all" as ViewType, label: "All Signal", count: counts.all },
     { id: "trending" as ViewType, label: "Trending Now", count: counts.trending },
-    { id: "hidden-gems" as ViewType, label: "Hidden Gems", count: counts.hiddenGems },
     { id: "videos" as ViewType, label: "Videos", count: counts.videos },
     { id: "podcasts" as ViewType, label: "Podcasts", count: counts.podcasts },
   ];

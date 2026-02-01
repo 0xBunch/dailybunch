@@ -1,7 +1,7 @@
 /**
  * Trend Detection Service
  *
- * Detects rising stories, hidden gems, and tracks entity velocity changes.
+ * Detects rising stories and tracks entity velocity changes.
  */
 
 import prisma from "@/lib/db";
@@ -94,71 +94,6 @@ export async function getRisingLinks(limit = 10): Promise<TrendingLink[]> {
       Number(r.olderVelocity) === 0
         ? Number(r.recentVelocity) * 10
         : Number(r.recentVelocity) / Number(r.olderVelocity),
-    categoryName: r.categoryName,
-    sourceNames: r.sourceNames || [],
-  }));
-}
-
-/**
- * Get "Hidden Gems" - high-quality links from trusted sources with lower velocity
- *
- * Hidden Gems = TIER_1 or TIER_2 source mentions with velocity < 3
- * These might be worth highlighting even though they haven't gone viral
- */
-export async function getHiddenGems(limit = 10): Promise<TrendingLink[]> {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-  const results = await prisma.$queryRaw<
-    Array<{
-      id: string;
-      title: string | null;
-      fallbackTitle: string | null;
-      canonicalUrl: string;
-      domain: string;
-      categoryName: string | null;
-      velocity: bigint;
-      avgTrustScore: number;
-      sourceNames: string[] | null;
-    }>
-  >`
-    SELECT
-      l.id,
-      l.title,
-      l."fallbackTitle",
-      l."canonicalUrl",
-      l.domain,
-      c.name as "categoryName",
-      COUNT(DISTINCT m."sourceId") as velocity,
-      AVG(s."trustScore")::float as "avgTrustScore",
-      ARRAY_AGG(DISTINCT s.name) FILTER (WHERE s.name IS NOT NULL) as "sourceNames"
-    FROM "Link" l
-    INNER JOIN "Mention" m ON m."linkId" = l.id
-    INNER JOIN "Source" s ON m."sourceId" = s.id
-      AND s."showOnDashboard" = true
-      AND s.tier IN ('TIER_1', 'TIER_2')
-    LEFT JOIN "Category" c ON l."categoryId" = c.id
-    WHERE l."isBlocked" = false
-      AND l."firstSeenAt" >= ${sevenDaysAgo}
-      AND l.title IS NOT NULL
-      AND LENGTH(l.title) >= 15
-      AND LOWER(l.title) NOT LIKE '%' || LOWER(REPLACE(l.domain, 'www.', '')) || '%'
-      AND l.title ~ '[a-zA-Z].*\\s+.*[a-zA-Z]'
-    GROUP BY l.id, c.name
-    HAVING COUNT(DISTINCT m."sourceId") BETWEEN 1 AND 2
-      AND AVG(s."trustScore") >= 7
-    ORDER BY "avgTrustScore" DESC, l."firstSeenAt" DESC
-    LIMIT ${limit}
-  `;
-
-  return results.map((r) => ({
-    id: r.id,
-    title: r.title,
-    fallbackTitle: r.fallbackTitle,
-    canonicalUrl: r.canonicalUrl,
-    domain: r.domain,
-    velocity: Number(r.velocity),
-    recentVelocity: Number(r.velocity),
-    velocityAcceleration: 1,
     categoryName: r.categoryName,
     sourceNames: r.sourceNames || [],
   }));

@@ -60,7 +60,6 @@ interface MissionControlClientProps {
   counts: {
     all?: number;
     trending?: number;
-    hiddenGems?: number;
     videos?: number;
     podcasts?: number;
   };

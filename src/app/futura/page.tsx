@@ -7,7 +7,7 @@
  */
 
 import { getTrendingLinks } from "@/lib/queries";
-import { getRisingLinks, getHiddenGems, getTopEntities } from "@/lib/trends";
+import { getRisingLinks, getTopEntities } from "@/lib/trends";
 import prisma from "@/lib/db";
 import { FuturaInterface } from "./FuturaInterface";
 
@@ -19,10 +19,9 @@ export const metadata = {
 };
 
 async function gatherSignal() {
-  const [trending, rising, gems, entities, recentCount] = await Promise.all([
+  const [trending, rising, entities, recentCount] = await Promise.all([
     getTrendingLinks({ limit: 15, minVelocity: 2 }),
     getRisingLinks(5),
-    getHiddenGems(5),
     getTopEntities("week", 10),
     prisma.link.count({
       where: { firstSeenAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
@@ -53,7 +52,6 @@ async function gatherSignal() {
   return {
     trending: enrichedTrending,
     rising,
-    gems,
     entities,
     stats: {
       linksToday: recentCount,
@@ -132,27 +130,6 @@ function synthesizeSections(signal: Awaited<ReturnType<typeof gatherSignal>>): S
       title: "TRAJECTORY",
       glyph: "↗",
       entries: trajectoryEntries,
-    });
-  }
-
-  // HIDDEN: What high-trust sources noticed that others missed
-  if (signal.gems.length > 0) {
-    const hiddenEntries = signal.gems.slice(0, 3).map((link) => ({
-      insight: `${link.title || link.fallbackTitle} — noticed by elite sources but not yet viral`,
-      confidence: "medium" as const,
-      evidence: link.sourceNames,
-      links: [{
-        title: link.title || link.fallbackTitle || "Untitled",
-        url: link.canonicalUrl,
-        velocity: link.velocity,
-      }],
-    }));
-
-    sections.push({
-      id: "hidden",
-      title: "HIDDEN",
-      glyph: "◇",
-      entries: hiddenEntries,
     });
   }
 

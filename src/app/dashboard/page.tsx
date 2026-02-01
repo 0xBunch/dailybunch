@@ -7,7 +7,7 @@
 
 import prisma from "@/lib/db";
 import { getVelocityLinks, getTrendingLinks, getLinkEntities, getTopVideos } from "@/lib/queries";
-import { getRisingEntities, getHiddenGems } from "@/lib/trends";
+import { getRisingEntities } from "@/lib/trends";
 import { getTopMarkets } from "@/lib/polymarket";
 import { getDisplayTitle } from "@/lib/title-utils";
 import { MissionControlClient } from "@/components/MissionControlClient";
@@ -31,7 +31,6 @@ export default async function DashboardPage() {
     trendingLinksData,
     allLinks,
     risingEntitiesData,
-    hiddenGemsData,
     categoriesData,
     counts,
     topVideosData,
@@ -45,8 +44,6 @@ export default async function DashboardPage() {
     getVelocityLinks({ timeFilter: sevenDaysAgo, limit: 100 }),
     // Rising entities
     getRisingEntities(8),
-    // Hidden gems
-    getHiddenGems(5),
     // Categories with counts
     prisma.category.findMany({
       select: {
@@ -200,7 +197,6 @@ export default async function DashboardPage() {
       counts={{
         all: allCount,
         trending: trendingLinksData.length,
-        hiddenGems: hiddenGemsData.length,
         videos: videoCount,
         podcasts: podcastCount,
       }}
@@ -326,57 +322,6 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      {/* Hidden Gems */}
-      {hiddenGemsData.length > 0 && (
-        <section className="border-b px-4 py-6 md:px-6" style={{ borderColor: "var(--border)" }}>
-          <div className="mb-3 flex items-center gap-2">
-            <span style={{ color: "var(--text-faint)" }}>💎</span>
-            <h2
-              className="text-xs uppercase tracking-wider"
-              style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
-            >
-              Hidden Gems
-            </h2>
-            <span
-              className="text-[10px]"
-              style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
-            >
-              from trusted sources
-            </span>
-          </div>
-          <div className="space-y-2">
-            {hiddenGemsData.map((gem) => (
-              <div key={gem.id} className="flex items-start gap-3">
-                <span className="mt-1 text-xs" style={{ color: "var(--text-faint)" }}>
-                  •
-                </span>
-                <div className="min-w-0 flex-1">
-                  <a
-                    href={gem.canonicalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm hover:opacity-70 transition-opacity"
-                    style={{ color: "var(--text-primary)", textDecoration: "none" }}
-                  >
-                    {getDisplayTitle({
-                      title: gem.title,
-                      fallbackTitle: gem.fallbackTitle,
-                      canonicalUrl: gem.canonicalUrl,
-                      domain: gem.domain,
-                    }).text}
-                  </a>
-                  <span
-                    className="ml-2 text-xs"
-                    style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
-                  >
-                    {gem.sourceNames[0]}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
     </MissionControlClient>
   );
 }
