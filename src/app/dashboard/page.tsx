@@ -1,327 +1,188 @@
 /**
- * Mission Control Dashboard
+ * Dashboard - Latest Feed
  *
- * The central hub for cultural signal intelligence.
- * Features: Breaking stories, trending grid, rising entities, hidden gems.
+ * Simple chronological view of what's coming in.
+ * No trending logic, just the raw feed to see what we're capturing.
  */
 
 import prisma from "@/lib/db";
-import { getVelocityLinks, getTrendingLinks, getLinkEntities, getTopVideos } from "@/lib/queries";
-import { getRisingEntities } from "@/lib/trends";
-import { getTopMarkets } from "@/lib/polymarket";
 import { getDisplayTitle } from "@/lib/title-utils";
-import { MissionControlClient } from "@/components/MissionControlClient";
-import { TrendingSection } from "@/components/TrendingSection";
-import { RightRail } from "@/components/RightRail";
-import { TopVideoModule } from "@/components/TopVideoModule";
-import { PolymarketModule } from "@/components/PolymarketModule";
-import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  // Get time ranges
-  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  // Parallel data fetching
-  const [
-    breakingLinks,
-    trendingLinksData,
-    allLinks,
-    risingEntitiesData,
-    categoriesData,
-    counts,
-    topVideosData,
-    polymarketData,
-  ] = await Promise.all([
-    // Breaking: v5+, <6h
-    getTrendingLinks({ limit: 3, minVelocity: 5 }),
-    // Trending: v2+, <24h
-    getTrendingLinks({ limit: 6, minVelocity: 2 }),
-    // All velocity-ranked links
-    getVelocityLinks({ timeFilter: sevenDaysAgo, limit: 100 }),
-    // Rising entities
-    getRisingEntities(8),
-    // Categories with counts
-    prisma.category.findMany({
-      select: {
-        name: true,
-        slug: true,
-        _count: { select: { links: true } },
+  // Get latest links with their sources - simple chronological feed
+  const latestLinks = await prisma.link.findMany({
+    where: {
+      isBlocked: false,
+      firstSeenAt: { gte: twentyFourHoursAgo },
+      OR: [
+        { title: { not: null } },
+        { fallbackTitle: { not: null } },
+      ],
+    },
+    include: {
+      mentions: {
+        include: {
+          source: {
+            select: { name: true, showOnDashboard: true },
+          },
+        },
+        orderBy: { seenAt: "desc" },
       },
-      orderBy: { name: "asc" },
-    }),
-    // Counts for sidebar
-    Promise.all([
-      prisma.link.count({
-        where: {
-          isBlocked: false,
-          firstSeenAt: { gte: sevenDaysAgo },
-          OR: [
-            { title: { not: null } },
-            { fallbackTitle: { not: null } },
-          ],
-        },
-      }),
-      prisma.link.count({
-        where: {
-          isBlocked: false,
-          mediaType: "video",
-          firstSeenAt: { gte: sevenDaysAgo },
-        },
-      }),
-      prisma.link.count({
-        where: {
-          isBlocked: false,
-          mediaType: "podcast",
-          firstSeenAt: { gte: sevenDaysAgo },
-        },
-      }),
-    ]),
-    // Top videos for right rail (lowered to v1 until we have more cross-source videos)
-    getTopVideos({ minVelocity: 1, hoursLookback: 168, limit: 3 }),
-    // Polymarket data for right rail
-    getTopMarkets(5),
-  ]);
+      category: { select: { name: true } },
+    },
+    orderBy: { firstSeenAt: "desc" },
+    take: 100,
+  });
 
-  // Filter breaking to only include recent (< 6h)
-  const actualBreaking = breakingLinks.filter(
-    (l) => l.firstSeenAt >= sixHoursAgo
-  );
+  // Process links
+  const links = latestLinks.map((link) => {
+    const sources = [...new Set(
+      link.mentions
+        .filter((m) => m.source.showOnDashboard)
+        .map((m) => m.source.name)
+    )];
 
-  // Get cultural data for all links
-  const allLinkIds = [
-    ...breakingLinks.map((l) => l.id),
-    ...trendingLinksData.map((l) => l.id),
-    ...allLinks.map((l) => l.id),
-  ];
-
-  const [entityMap, culturalData, linksWithMedia] = await Promise.all([
-    getLinkEntities(allLinkIds),
-    prisma.link.findMany({
-      where: { id: { in: allLinkIds } },
-      select: {
-        id: true,
-        imageUrl: true,
-        mediaType: true,
-        culturalPrediction: true,
-        commentary: true,
-      },
-    }),
-    prisma.link.findMany({
-      where: { id: { in: allLinkIds } },
-      select: { id: true, imageUrl: true, mediaType: true },
-    }),
-  ]);
-
-  const culturalMap = new Map(culturalData.map((l) => [l.id, l]));
-  const mediaMap = new Map(linksWithMedia.map((l) => [l.id, l]));
-
-  // Format links for client component
-  const formatLink = (link: (typeof allLinks)[0]) => {
-    const cultural = culturalMap.get(link.id);
-    const media = mediaMap.get(link.id);
     return {
       id: link.id,
-      title: link.title,
-      fallbackTitle: link.fallbackTitle,
+      title: getDisplayTitle({
+        title: link.title,
+        fallbackTitle: link.fallbackTitle,
+        canonicalUrl: link.canonicalUrl,
+        domain: link.domain,
+      }).text,
       canonicalUrl: link.canonicalUrl,
       domain: link.domain,
-      aiSummary: link.aiSummary,
-      imageUrl: media?.imageUrl ?? null,
-      mediaType: media?.mediaType ?? null,
+      category: link.category?.name || null,
+      velocity: sources.length,
+      sources,
       firstSeenAt: link.firstSeenAt,
-      categoryName: link.categoryName,
-      velocity: link.velocity,
-      isTrending: link.isTrending,
-      sourceNames: link.sourceNames,
-      entities: (entityMap.get(link.id) || []).map((e) => ({
-        name: e.name,
-        type: e.type,
-      })),
-      culturalPrediction: cultural?.culturalPrediction ?? null,
-      commentary: cultural?.commentary ?? null,
-    };
-  };
-
-  // Format trending links with cultural data
-  const trendingLinks = trendingLinksData.map((link) => {
-    const cultural = culturalMap.get(link.id);
-    return {
-      ...link,
-      culturalWhyNow: cultural?.culturalPrediction ? undefined : null,
-      culturalPrediction: cultural?.culturalPrediction ?? null,
-      commentary: cultural?.commentary ?? null,
+      mediaType: link.mediaType,
     };
   });
 
-  const formattedLinks = allLinks.map(formatLink);
+  // Stats
+  const totalToday = links.length;
+  const withMultipleSources = links.filter((l) => l.velocity >= 2).length;
 
-  // Format categories
-  const categories = categoriesData.map((c) => ({
-    name: c.name,
-    slug: c.slug,
-    count: c._count.links,
-  }));
-
-  // Format rising entities
-  const risingEntities = risingEntitiesData.map((e) => ({
-    name: e.name,
-    slug: e.name.toLowerCase().replace(/\s+/g, "-"),
-    type: e.type,
-    trend: "rising" as const,
-    count: e.velocityWeek,
-  }));
-
-  const [allCount, videoCount, podcastCount] = counts;
-
-  // Format top videos for right rail
-  const topVideos = topVideosData.map((v) => ({
-    id: v.id,
-    title: v.title,
-    fallbackTitle: v.fallbackTitle,
-    canonicalUrl: v.canonicalUrl,
-    domain: v.domain,
-    velocity: v.velocity,
-    sourceNames: v.sourceNames,
-    firstSeenAt: v.firstSeenAt,
-  }));
+  // Format relative time
+  const formatTime = (date: Date) => {
+    const mins = Math.floor((Date.now() - date.getTime()) / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  };
 
   return (
-    <MissionControlClient
-      links={formattedLinks}
-      categories={categories}
-      risingEntities={risingEntities}
-      counts={{
-        all: allCount,
-        trending: trendingLinksData.length,
-        videos: videoCount,
-        podcasts: podcastCount,
-      }}
-      rightRail={
-        <RightRail>
-          <TopVideoModule videos={topVideos} />
-          <PolymarketModule markets={polymarketData} />
-        </RightRail>
-      }
+    <div
+      className="min-h-screen"
+      style={{ background: "var(--background)", color: "var(--text-primary)" }}
     >
-      {/* Breaking Now Section */}
-      {actualBreaking.length > 0 && (
-        <section className="border-b px-4 py-6 md:px-6" style={{ borderColor: "var(--border)" }}>
-          <div className="mb-4 flex items-center gap-2">
-            <span
-              className="inline-block size-2"
-              style={{ background: "var(--accent)", borderRadius: "50%" }}
-            />
-            <h2
-              className="text-xs uppercase tracking-wider"
-              style={{ color: "var(--accent)", fontFamily: "var(--font-mono)" }}
-            >
-              Breaking Now
-            </h2>
+      {/* Header */}
+      <header
+        className="sticky top-0 z-10 border-b px-4 py-3 md:px-6"
+        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+      >
+        <div className="flex items-center justify-between">
+          <h1
+            className="text-lg font-medium"
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
+            DAILY BUNCH
+          </h1>
+          <div
+            className="text-xs"
+            style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+          >
+            {totalToday} links today · {withMultipleSources} with v2+
           </div>
+        </div>
+      </header>
 
-          <div className="space-y-4">
-            {actualBreaking.map((link) => {
-              const cultural = culturalMap.get(link.id);
-              return (
-                <article
-                  key={link.id}
-                  className="p-4"
+      {/* Feed */}
+      <main className="mx-auto max-w-4xl px-4 py-6 md:px-6">
+        <div className="space-y-1">
+          {links.map((link) => (
+            <article
+              key={link.id}
+              className="group flex items-start gap-4 rounded px-3 py-2 transition-colors hover:bg-white/5"
+            >
+              {/* Time */}
+              <div
+                className="w-16 flex-shrink-0 pt-0.5 text-xs tabular-nums"
+                style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+              >
+                {formatTime(link.firstSeenAt)}
+              </div>
+
+              {/* Content */}
+              <div className="min-w-0 flex-1">
+                <a
+                  href={link.canonicalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-sm leading-snug transition-opacity hover:opacity-70"
+                  style={{ color: "var(--text-primary)", textDecoration: "none" }}
+                >
+                  {link.title}
+                </a>
+                <div
+                  className="mt-1 flex items-center gap-2 text-xs"
+                  style={{ color: "var(--text-faint)" }}
+                >
+                  <span>{link.domain}</span>
+                  {link.category && (
+                    <>
+                      <span>·</span>
+                      <span>{link.category}</span>
+                    </>
+                  )}
+                  {link.mediaType && (
+                    <>
+                      <span>·</span>
+                      <span className="uppercase">{link.mediaType}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Velocity + Sources */}
+              <div className="flex-shrink-0 text-right">
+                <div
+                  className="text-xs tabular-nums"
                   style={{
-                    background: "var(--accent-subtle)",
-                    borderLeft: "3px solid var(--accent)",
+                    color: link.velocity >= 3 ? "var(--accent)" : link.velocity >= 2 ? "var(--text-secondary)" : "var(--text-faint)",
+                    fontFamily: "var(--font-mono)",
                   }}
                 >
-                  <h3 className="mb-2 text-xl leading-snug">
-                    <a
-                      href={link.canonicalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:opacity-70 transition-opacity"
-                      style={{ color: "var(--text-primary)", textDecoration: "none" }}
-                    >
-                      {getDisplayTitle({
-                        title: link.title,
-                        fallbackTitle: link.fallbackTitle,
-                        canonicalUrl: link.canonicalUrl,
-                        domain: link.domain,
-                      }).text}
-                    </a>
-                  </h3>
-                  {cultural?.commentary && (
-                    <p
-                      className="mb-2 text-sm leading-relaxed"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      {cultural.commentary}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-3 text-xs">
-                    <span
-                      className="tabular-nums"
-                      style={{ color: "var(--accent)", fontFamily: "var(--font-mono)" }}
-                    >
-                      v{link.velocity}
-                    </span>
-                    <span style={{ color: "var(--text-faint)" }}>
-                      {link.sourceNames.slice(0, 3).join(", ")}
-                      {link.sourceNames.length > 3 && ` +${link.sourceNames.length - 3}`}
-                    </span>
-                    <span style={{ color: "var(--text-faint)" }}>·</span>
-                    <span style={{ color: "var(--text-faint)" }}>{link.domain}</span>
-                  </div>
-                </article>
-              );
-            })}
+                  v{link.velocity}
+                </div>
+                <div
+                  className="mt-0.5 max-w-32 truncate text-xs"
+                  style={{ color: "var(--text-faint)" }}
+                  title={link.sources.join(", ")}
+                >
+                  {link.sources.slice(0, 2).join(", ")}
+                  {link.sources.length > 2 && ` +${link.sources.length - 2}`}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        {links.length === 0 && (
+          <div
+            className="py-12 text-center text-sm"
+            style={{ color: "var(--text-faint)" }}
+          >
+            No links in the last 24 hours. Check if ingestion is running.
           </div>
-        </section>
-      )}
-
-      {/* Trending Grid */}
-      {trendingLinks.length > 0 && (
-        <section className="border-b px-4 py-6 md:px-6" style={{ borderColor: "var(--border)" }}>
-          <TrendingSection links={trendingLinks} />
-        </section>
-      )}
-
-      {/* Rising Entities Chips */}
-      {risingEntities.length > 0 && (
-        <section className="border-b px-4 py-4 md:px-6" style={{ borderColor: "var(--border)" }}>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className="mr-2 text-[10px] uppercase tracking-wider"
-              style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
-            >
-              Rising:
-            </span>
-            {risingEntities.map((entity) => (
-              <Link
-                key={entity.slug}
-                href={`/entity/${entity.slug}`}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs transition-opacity hover:opacity-70"
-                style={{
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  color: "var(--text-secondary)",
-                  textDecoration: "none",
-                }}
-              >
-                <span style={{ color: "var(--status-success)" }}>↑</span>
-                <span>
-                  {entity.type === "person" && "@"}
-                  {entity.type === "organization" && "+"}
-                  {entity.type === "product" && "#"}
-                  {entity.name}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-    </MissionControlClient>
+        )}
+      </main>
+    </div>
   );
 }
