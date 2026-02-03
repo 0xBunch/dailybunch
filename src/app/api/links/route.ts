@@ -16,8 +16,10 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("q");
 
     // Build where clause - include links with either title OR fallbackTitle
+    // Exclude blocked links (robot pages, paywalls, 404s)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const whereClause: any = {
+      isBlocked: false,
       OR: [
         { title: { not: null } },
         { fallbackTitle: { not: null } },
