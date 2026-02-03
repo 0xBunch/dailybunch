@@ -64,26 +64,27 @@ export function DashboardClient({ links, categories }: DashboardClientProps) {
     >
       {/* Header */}
       <header
-        className="sticky top-0 z-10 border-b px-4 py-3 md:px-6"
+        className="sticky top-0 z-10 border-b px-4 py-4 md:px-6"
         style={{ background: "var(--surface)", borderColor: "var(--border)" }}
       >
-        <div className="flex items-center justify-between">
-          <h1
-            className="text-lg font-medium"
-            style={{ fontFamily: "var(--font-mono)" }}
-          >
-            DAILY BUNCH
-          </h1>
-          <div
-            className="text-xs tabular-nums"
-            style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
-          >
-            {stats.showing} of {stats.total} links
+        <div className="mx-auto max-w-4xl">
+          <div className="flex items-center justify-center gap-4">
+            <h1
+              className="text-xl font-medium"
+              style={{ fontFamily: "var(--font-mono)" }}
+            >
+              DAILY BUNCH
+            </h1>
+            <div
+              className="text-xs tabular-nums"
+              style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+            >
+              {stats.showing} of {stats.total} links
+            </div>
           </div>
-        </div>
 
-        {/* Filters */}
-        <div className="mt-3 flex flex-wrap items-center gap-3">
+          {/* Filters */}
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
           {/* Velocity Filter */}
           <div className="flex items-center gap-1">
             {(["all", "v2+", "v5+"] as VelocityFilter[]).map((filter) => {
@@ -142,18 +143,19 @@ export function DashboardClient({ links, categories }: DashboardClientProps) {
               );
             })}
           </div>
+          </div>
         </div>
       </header>
 
       {/* Feed */}
       <main className="mx-auto max-w-4xl px-4 py-4 md:px-6">
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           {filteredLinks.map((link) => {
             const isHighVelocity = link.velocity >= 5;
             return (
               <article
                 key={link.id}
-                className="group flex items-start gap-3 rounded px-3 py-2 transition-colors"
+                className="group flex items-start gap-4 rounded px-3 py-3 transition-colors"
                 style={{
                   background: isHighVelocity ? "var(--accent-subtle)" : "transparent",
                   borderLeft: isHighVelocity ? "2px solid var(--accent)" : "2px solid transparent",
@@ -161,7 +163,7 @@ export function DashboardClient({ links, categories }: DashboardClientProps) {
               >
                 {/* Time */}
                 <div
-                  className="w-10 flex-shrink-0 pt-0.5 text-xs tabular-nums"
+                  className="w-12 flex-shrink-0 pt-0.5 text-sm tabular-nums"
                   style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
                 >
                   {formatTime(link.firstSeenAt)}
@@ -169,7 +171,7 @@ export function DashboardClient({ links, categories }: DashboardClientProps) {
 
                 {/* Velocity Badge */}
                 <div
-                  className="w-8 flex-shrink-0 pt-0.5 text-xs tabular-nums text-center"
+                  className="w-10 flex-shrink-0 pt-0.5 text-sm tabular-nums text-center"
                   style={{
                     color: link.velocity >= 5 ? "var(--accent)" : link.velocity >= 2 ? "var(--text-secondary)" : "var(--text-faint)",
                     fontFamily: "var(--font-mono)",
@@ -185,7 +187,7 @@ export function DashboardClient({ links, categories }: DashboardClientProps) {
                     href={link.canonicalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block text-sm leading-snug transition-opacity hover:opacity-70"
+                    className="block text-base leading-snug transition-opacity hover:opacity-70"
                     style={{
                       color: "var(--text-primary)",
                       textDecoration: "none",
@@ -195,7 +197,7 @@ export function DashboardClient({ links, categories }: DashboardClientProps) {
                     {link.title}
                   </a>
                   <div
-                    className="mt-0.5 flex items-center gap-2 text-xs"
+                    className="mt-1 flex items-center gap-2 text-sm"
                     style={{ color: "var(--text-faint)" }}
                   >
                     <span>{link.domain}</span>
