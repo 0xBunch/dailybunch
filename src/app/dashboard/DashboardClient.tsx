@@ -14,14 +14,22 @@ interface Link {
   mediaType: string | null;
 }
 
+interface Entity {
+  id: string;
+  name: string;
+  type: string;
+  velocityWeek: number;
+}
+
 interface DashboardClientProps {
   links: Link[];
   categories: string[];
+  entities: Entity[];
 }
 
 type VelocityFilter = "all" | "v2+" | "v5+";
 
-export function DashboardClient({ links, categories }: DashboardClientProps) {
+export function DashboardClient({ links, categories, entities }: DashboardClientProps) {
   const [velocityFilter, setVelocityFilter] = useState<VelocityFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
@@ -146,6 +154,47 @@ export function DashboardClient({ links, categories }: DashboardClientProps) {
           </div>
         </div>
       </header>
+
+      {/* Rising Entities */}
+      {entities.length > 0 && (
+        <div
+          className="border-b px-4 py-3 md:px-6"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <div className="mx-auto max-w-4xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className="text-xs uppercase tracking-wider"
+                style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+              >
+                Trending:
+              </span>
+              {entities.map((entity) => (
+                <span
+                  key={entity.id}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm"
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  <span style={{ color: "var(--accent)" }}>
+                    {entity.type === "person" ? "@" : entity.type === "organization" ? "+" : "#"}
+                  </span>
+                  {entity.name}
+                  <span
+                    className="text-xs tabular-nums"
+                    style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+                  >
+                    {entity.velocityWeek}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Feed */}
       <main className="mx-auto max-w-4xl px-4 py-4 md:px-6">
