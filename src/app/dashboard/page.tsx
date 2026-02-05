@@ -6,8 +6,21 @@
  */
 
 import prisma from "@/lib/db";
-import { getDisplayTitle } from "@/lib/title-utils";
+import { getDisplayTitle, decodeHtmlEntities, stripPublicationSuffix, isBlockedTitle } from "@/lib/title-utils";
 import { getRisingEntities } from "@/lib/trends";
+
+/**
+ * Check if a title looks like garbage (random strings, too long, etc.)
+ */
+function isGarbageTitle(title: string): boolean {
+  // Too long (likely garbage data)
+  if (title.length > 200) return true;
+  // Looks like random alphanumeric string (no spaces, very long)
+  if (title.length > 50 && !title.includes(" ")) return true;
+  // Contains suspicious patterns
+  if (/^[a-z0-9]{30,}$/i.test(title)) return true;
+  return false;
+}
 import { DashboardClient } from "./DashboardClient";
 
 export const dynamic = "force-dynamic";
@@ -92,34 +105,44 @@ export default async function DashboardPage() {
   const storyVelocityMap = new Map(storyMentions.map(m => [m.linkId, m._count.sourceId]));
 
   // Process stories into display format
-  const processedStories = stories.map((story) => {
-    const storyLinks = story.links.map((sl) => ({
-      id: sl.link.id,
-      title: getDisplayTitle({
-        title: sl.link.title,
-        fallbackTitle: sl.link.fallbackTitle,
-        canonicalUrl: sl.link.canonicalUrl,
+  const processedStories = stories
+    .map((story) => {
+      const storyLinks = story.links.map((sl) => ({
+        id: sl.link.id,
+        title: getDisplayTitle({
+          title: sl.link.title,
+          fallbackTitle: sl.link.fallbackTitle,
+          canonicalUrl: sl.link.canonicalUrl,
+          domain: sl.link.domain,
+        }).text,
         domain: sl.link.domain,
-      }).text,
-      domain: sl.link.domain,
-      canonicalUrl: sl.link.canonicalUrl,
-      velocity: storyVelocityMap.get(sl.link.id) || 1,
-    }));
+        canonicalUrl: sl.link.canonicalUrl,
+        velocity: storyVelocityMap.get(sl.link.id) || 1,
+      }));
 
-    // Combined velocity = unique sources across all links
-    const combinedVelocity = storyLinks.reduce((sum, l) => sum + l.velocity, 0);
+      // Combined velocity = unique sources across all links
+      const combinedVelocity = storyLinks.reduce((sum, l) => sum + l.velocity, 0);
 
-    return {
-      id: story.id,
-      title: story.title,
-      linkCount: storyLinks.length,
-      combinedVelocity,
-      domains: [...new Set(storyLinks.map(l => l.domain))],
-      primaryLink: storyLinks[0],
-      links: storyLinks,
-      lastLinkAt: story.lastLinkAt.toISOString(),
-    };
-  });
+      // Clean the story title
+      const cleanedTitle = stripPublicationSuffix(decodeHtmlEntities(story.title));
+
+      return {
+        id: story.id,
+        title: cleanedTitle,
+        linkCount: storyLinks.length,
+        combinedVelocity,
+        domains: [...new Set(storyLinks.map(l => l.domain))],
+        primaryLink: storyLinks[0],
+        links: storyLinks,
+        lastLinkAt: story.lastLinkAt.toISOString(),
+      };
+    })
+    // Filter out stories with garbage or blocked titles
+    .filter((story) => {
+      if (isBlockedTitle(story.title)) return false;
+      if (isGarbageTitle(story.title)) return false;
+      return true;
+    });
 
   // Sort stories by combined velocity
   processedStories.sort((a, b) => b.combinedVelocity - a.combinedVelocity);
