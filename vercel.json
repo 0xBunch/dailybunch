@@ -1,3 +1,29 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/ingest/poll",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/enrich",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/analyze",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/embeddings",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/trends",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/clustering",
+      "schedule": "30 */6 * * *"
+    }
+  ]
 }

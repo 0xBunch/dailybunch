@@ -35,7 +35,6 @@ export default async function LatestPage({
   const params = await searchParams;
   const currentPage = parseInt(params.page || "1", 10);
 
-  // Get total count (excluding blocked)
   const totalCount = await prisma.link.count({
     where: {
       isBlocked: false,
@@ -47,7 +46,6 @@ export default async function LatestPage({
   });
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  // Get links chronologically (newest first)
   const links = await prisma.link.findMany({
     where: {
       isBlocked: false,
@@ -66,7 +64,6 @@ export default async function LatestPage({
     take: PAGE_SIZE,
   });
 
-  // Transform to display format
   const displayLinks = links.map((link) => {
     const displayTitle = getDisplayTitle({
       title: link.title,
@@ -86,138 +83,71 @@ export default async function LatestPage({
   });
 
   return (
-    <div className="min-h-dvh" style={{ background: "var(--background)" }}>
-      {/* Header - consistent with dashboard */}
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--background)" }}>
+      {/* Header */}
       <header
         className="sticky top-0 z-10 border-b"
         style={{ background: "var(--background)", borderColor: "var(--border)" }}
       >
-        <div className="mx-auto max-w-3xl px-6 py-5 flex items-center justify-between">
-          <h1
-            className="text-lg tracking-tight"
+        <div className="mx-auto max-w-3xl px-6 py-4 flex items-center justify-between">
+          <Link
+            href="/"
+            className="text-lg tracking-tight link-plain"
             style={{ fontFamily: "var(--font-headline)", fontWeight: 600 }}
           >
-            <Link
-              href="/"
-              style={{ color: "var(--text-primary)", textDecoration: "none" }}
-            >
-              Daily Bunch
-            </Link>
-          </h1>
+            Daily Bunch
+          </Link>
           <nav className="flex items-center gap-6 text-sm">
-            <Link
-              href="/links"
-              className="transition-colors"
-              style={{
-                color: "var(--text-primary)",
-                fontWeight: 500,
-                textDecoration: "none",
-              }}
-              aria-current="page"
-            >
-              Latest
-            </Link>
-            <Link
-              href="/dashboard"
-              className="transition-colors"
-              style={{ color: "var(--text-muted)", textDecoration: "none" }}
-            >
-              Trending
-            </Link>
-            <Link
-              href="/admin"
-              className="transition-colors"
-              style={{ color: "var(--text-muted)", textDecoration: "none" }}
-            >
-              Admin
-            </Link>
+            <Link href="/dashboard" className="link-muted">Trending</Link>
+            <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>Latest</span>
+            <Link href="/admin" className="link-muted">Admin</Link>
           </nav>
         </div>
       </header>
 
       {/* Main content */}
-      <main className="mx-auto max-w-3xl px-6 py-8">
-        {/* Section header */}
-        <h2
-          className="text-xs tracking-wide mb-6 pb-3 border-b"
-          style={{
-            color: "var(--text-faint)",
-            fontFamily: "var(--font-mono)",
-            borderColor: "var(--border)",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-          }}
-        >
-          Latest
+      <main className="flex-1 mx-auto max-w-3xl w-full px-6 py-8">
+        <div className="flex items-baseline justify-between mb-6 pb-3 border-b" style={{ borderColor: "var(--border)" }}>
+          <h2 className="section-header" style={{ marginBottom: 0, paddingBottom: 0, borderBottom: "none" }}>
+            Latest
+          </h2>
           {totalPages > 1 && (
-            <span className="float-right tabular-nums">
-              Page {currentPage} of {totalPages}
+            <span
+              className="text-xs tabular-nums"
+              style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+            >
+              {currentPage} / {totalPages}
             </span>
           )}
-        </h2>
+        </div>
 
         {displayLinks.length === 0 ? (
-          <div
-            className="py-16 text-center"
-            style={{ color: "var(--text-faint)" }}
-          >
-            <p style={{ fontFamily: "var(--font-body)" }}>No links yet.</p>
+          <div className="py-16 text-center" style={{ color: "var(--text-faint)" }}>
+            No links yet.
           </div>
         ) : (
           <>
-            <div className="divide-y" style={{ borderColor: "var(--border-subtle)" }}>
-              {displayLinks.map((link, index) => {
-                const isHighVelocity = link.velocity >= 5;
+            <div>
+              {displayLinks.map((link) => {
+                const isHot = link.velocity >= 5;
                 return (
-                  <article
-                    key={link.id}
-                    className="feed-item py-5"
-                    style={{ borderColor: "var(--border-subtle)" }}
-                  >
-                    <div className="flex items-baseline gap-4">
-                      {/* Time */}
-                      <time
-                        className="w-12 shrink-0 text-xs tabular-nums"
-                        style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+                  <article key={link.id} className="feed-item link-item" data-hot={isHot}>
+                    <time className="link-time">{formatRelativeTime(link.firstSeenAt)}</time>
+                    <div className="link-content">
+                      <a
+                        href={link.canonicalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="link-title"
                       >
-                        {formatRelativeTime(link.firstSeenAt)}
-                      </time>
-
-                      {/* Content */}
-                      <div className="min-w-0 flex-1">
-                        <a
-                          href={link.canonicalUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block text-base leading-snug transition-colors"
-                          style={{
-                            color: "var(--text-primary)",
-                            textDecoration: "none",
-                            fontFamily: "var(--font-body)",
-                            fontWeight: isHighVelocity ? 500 : 400,
-                          }}
-                        >
-                          {link.title}
-                        </a>
-                        <div
-                          className="mt-1.5 flex items-center gap-2 text-xs"
-                          style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
-                        >
-                          <span>{link.domain}</span>
-                          <span>·</span>
-                          <span
-                            className="tabular-nums"
-                            style={{ color: isHighVelocity ? "var(--accent)" : "var(--text-faint)" }}
-                          >
-                            {link.velocity} {link.velocity === 1 ? "source" : "sources"}
-                          </span>
-                          {link.sourceNames[0] && (
-                            <>
-                              <span>·</span>
-                              <span>via {link.sourceNames[0]}</span>
-                            </>
-                          )}
-                        </div>
+                        {link.title}
+                      </a>
+                      <div className="link-meta">
+                        <span>{link.domain}</span>
+                        <span className="link-sources" data-hot={isHot}>
+                          {link.velocity} {link.velocity === 1 ? "source" : "sources"}
+                        </span>
+                        {link.sourceNames[0] && <span>{link.sourceNames[0]}</span>}
                       </div>
                     </div>
                   </article>
@@ -225,25 +155,14 @@ export default async function LatestPage({
               })}
             </div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-8 flex justify-center items-center gap-4">
+              <div className="mt-8 flex justify-center items-center gap-6">
                 {currentPage > 1 ? (
-                  <Link
-                    href={`/links?page=${currentPage - 1}`}
-                    className="px-4 py-2 text-sm transition-colors"
-                    style={{
-                      border: "1px solid var(--border)",
-                      background: "var(--background)",
-                      textDecoration: "none",
-                      color: "var(--text-primary)",
-                      fontFamily: "var(--font-mono)",
-                    }}
-                  >
+                  <Link href={`/links?page=${currentPage - 1}`} className="pagination-btn">
                     Previous
                   </Link>
                 ) : (
-                  <span className="w-24" />
+                  <span className="pagination-btn-placeholder" />
                 )}
                 <span
                   className="text-xs tabular-nums"
@@ -252,27 +171,26 @@ export default async function LatestPage({
                   {currentPage} / {totalPages}
                 </span>
                 {currentPage < totalPages ? (
-                  <Link
-                    href={`/links?page=${currentPage + 1}`}
-                    className="px-4 py-2 text-sm transition-colors"
-                    style={{
-                      border: "1px solid var(--border)",
-                      background: "var(--background)",
-                      textDecoration: "none",
-                      color: "var(--text-primary)",
-                      fontFamily: "var(--font-mono)",
-                    }}
-                  >
+                  <Link href={`/links?page=${currentPage + 1}`} className="pagination-btn">
                     Next
                   </Link>
                 ) : (
-                  <span className="w-24" />
+                  <span className="pagination-btn-placeholder" />
                 )}
               </div>
             )}
           </>
         )}
       </main>
+
+      {/* Footer */}
+      <footer className="border-t mt-auto" style={{ borderColor: "var(--border)" }}>
+        <div className="mx-auto max-w-3xl px-6 py-6 text-center">
+          <p className="text-xs" style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}>
+            Daily Bunch tracks what tastemakers are pointing at.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
