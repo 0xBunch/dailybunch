@@ -2,6 +2,25 @@
 
 import { useState, useMemo } from "react";
 
+interface StoryLink {
+  id: string;
+  title: string;
+  domain: string;
+  canonicalUrl: string;
+  velocity: number;
+}
+
+interface Story {
+  id: string;
+  title: string;
+  linkCount: number;
+  combinedVelocity: number;
+  domains: string[];
+  primaryLink: StoryLink;
+  links: StoryLink[];
+  lastLinkAt: string;
+}
+
 interface Link {
   id: string;
   title: string;
@@ -12,6 +31,7 @@ interface Link {
   sources: string[];
   firstSeenAt: string;
   mediaType: string | null;
+  entityIds: string[];
 }
 
 interface Entity {
@@ -22,6 +42,7 @@ interface Entity {
 }
 
 interface DashboardClientProps {
+  stories: Story[];
   links: Link[];
   categories: string[];
   entities: Entity[];
@@ -29,31 +50,37 @@ interface DashboardClientProps {
 
 type VelocityFilter = "all" | "v2+" | "v5+";
 
-export function DashboardClient({ links, categories, entities }: DashboardClientProps) {
+const velocityLabels: Record<VelocityFilter, string> = {
+  all: "All",
+  "v2+": "2+ sources",
+  "v5+": "5+ sources",
+};
+
+export function DashboardClient({ stories, links, categories, entities }: DashboardClientProps) {
   const [velocityFilter, setVelocityFilter] = useState<VelocityFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [entityFilter, setEntityFilter] = useState<string | null>(null);
+  const [expandedStories, setExpandedStories] = useState<Set<string>>(new Set());
+
+  // Filter stories by velocity
+  const filteredStories = useMemo(() => {
+    return stories.filter((story) => {
+      if (velocityFilter === "v2+" && story.combinedVelocity < 2) return false;
+      if (velocityFilter === "v5+" && story.combinedVelocity < 5) return false;
+      return true;
+    });
+  }, [stories, velocityFilter]);
 
   // Filter links
   const filteredLinks = useMemo(() => {
     return links.filter((link) => {
-      // Velocity filter
       if (velocityFilter === "v2+" && link.velocity < 2) return false;
       if (velocityFilter === "v5+" && link.velocity < 5) return false;
-
-      // Category filter
       if (categoryFilter && link.category !== categoryFilter) return false;
-
+      if (entityFilter && !link.entityIds.includes(entityFilter)) return false;
       return true;
     });
-  }, [links, velocityFilter, categoryFilter]);
-
-  // Stats
-  const stats = useMemo(() => ({
-    total: links.length,
-    v2Plus: links.filter((l) => l.velocity >= 2).length,
-    v5Plus: links.filter((l) => l.velocity >= 5).length,
-    showing: filteredLinks.length,
-  }), [links, filteredLinks]);
+  }, [links, velocityFilter, categoryFilter, entityFilter]);
 
   // Format relative time
   const formatTime = (dateStr: string) => {
@@ -65,216 +92,387 @@ export function DashboardClient({ links, categories, entities }: DashboardClient
     return `${Math.floor(hours / 24)}d`;
   };
 
+  const toggleStory = (storyId: string) => {
+    setExpandedStories((prev) => {
+      const next = new Set(prev);
+      if (next.has(storyId)) {
+        next.delete(storyId);
+      } else {
+        next.add(storyId);
+      }
+      return next;
+    });
+  };
+
+  // Visible entities (top 5)
+  const visibleEntities = entities.slice(0, 5);
+  const hiddenEntityCount = Math.max(0, entities.length - 5);
+
   return (
     <div
       className="min-h-screen"
       style={{ background: "var(--background)", color: "var(--text-primary)" }}
     >
-      {/* Header */}
+      {/* Header - Site identity */}
       <header
-        className="sticky top-0 z-10 border-b px-4 py-4 md:px-6"
-        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+        className="sticky top-0 z-10 border-b"
+        style={{ background: "var(--background)", borderColor: "var(--border)" }}
       >
-        <div className="mx-auto max-w-4xl">
-          <div className="flex items-center justify-center gap-4">
-            <h1
-              className="text-xl font-medium"
-              style={{ fontFamily: "var(--font-mono)" }}
-            >
-              DAILY BUNCH
-            </h1>
+        <div className="mx-auto max-w-3xl px-6 py-5">
+          <h1
+            className="text-lg tracking-tight"
+            style={{ fontFamily: "var(--font-headline)", fontWeight: 600 }}
+          >
+            Daily Bunch
+          </h1>
+        </div>
+
+        {/* Filter bar - separate concern */}
+        <div
+          className="border-t"
+          style={{ background: "var(--surface-dim)", borderColor: "var(--border)" }}
+        >
+          <div className="mx-auto max-w-3xl px-6 py-3 flex items-center gap-6">
+            {/* Velocity filter group */}
             <div
-              className="text-xs tabular-nums"
-              style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+              className="flex items-center p-1"
+              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
             >
-              {stats.showing} of {stats.total} links
+              {(["all", "v2+", "v5+"] as VelocityFilter[]).map((filter) => {
+                const isActive = velocityFilter === filter;
+                return (
+                  <button
+                    key={filter}
+                    onClick={() => setVelocityFilter(filter)}
+                    className="px-3 py-1.5 text-xs transition-colors"
+                    style={{
+                      background: isActive ? "var(--background)" : "transparent",
+                      color: isActive ? "var(--text-primary)" : "var(--text-muted)",
+                      fontFamily: "var(--font-mono)",
+                      fontWeight: isActive ? 500 : 400,
+                    }}
+                  >
+                    {velocityLabels[filter]}
+                  </button>
+                );
+              })}
             </div>
-          </div>
 
-          {/* Filters */}
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
-          {/* Velocity Filter */}
-          <div className="flex items-center gap-1">
-            {(["all", "v2+", "v5+"] as VelocityFilter[]).map((filter) => {
-              const count = filter === "all" ? stats.total : filter === "v2+" ? stats.v2Plus : stats.v5Plus;
-              const isActive = velocityFilter === filter;
-              return (
-                <button
-                  key={filter}
-                  onClick={() => setVelocityFilter(filter)}
-                  className="px-2 py-1 text-xs transition-colors"
-                  style={{
-                    background: isActive ? "var(--accent)" : "transparent",
-                    color: isActive ? "var(--background)" : "var(--text-secondary)",
-                    borderRadius: "4px",
-                    fontFamily: "var(--font-mono)",
-                  }}
-                >
-                  {filter === "all" ? "ALL" : filter.toUpperCase()} ({count})
-                </button>
-              );
-            })}
-          </div>
+            {/* Divider */}
+            <div style={{ width: 1, height: 20, background: "var(--border)" }} />
 
-          {/* Divider */}
-          <div style={{ width: 1, height: 16, background: "var(--border)" }} />
-
-          {/* Category Filter */}
-          <div className="flex flex-wrap items-center gap-1">
-            <button
-              onClick={() => setCategoryFilter(null)}
-              className="px-2 py-1 text-xs transition-colors"
-              style={{
-                background: categoryFilter === null ? "var(--surface-hover)" : "transparent",
-                color: categoryFilter === null ? "var(--text-primary)" : "var(--text-faint)",
-                borderRadius: "4px",
-              }}
-            >
-              All
-            </button>
-            {categories.map((cat) => {
-              const isActive = categoryFilter === cat;
-              const count = links.filter((l) => l.category === cat).length;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setCategoryFilter(isActive ? null : cat)}
-                  className="px-2 py-1 text-xs transition-colors"
-                  style={{
-                    background: isActive ? "var(--surface-hover)" : "transparent",
-                    color: isActive ? "var(--text-primary)" : "var(--text-faint)",
-                    borderRadius: "4px",
-                  }}
-                >
-                  {cat} ({count})
-                </button>
-              );
-            })}
-          </div>
+            {/* Category pills */}
+            <div className="flex-1 overflow-x-auto flex items-center gap-2">
+              <button
+                onClick={() => setCategoryFilter(null)}
+                className="px-2.5 py-1 text-xs transition-colors whitespace-nowrap"
+                style={{
+                  color: categoryFilter === null ? "var(--text-primary)" : "var(--text-muted)",
+                  fontWeight: categoryFilter === null ? 500 : 400,
+                }}
+              >
+                All
+              </button>
+              {categories.map((cat) => {
+                const isActive = categoryFilter === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(isActive ? null : cat)}
+                    className="px-2.5 py-1 text-xs transition-colors whitespace-nowrap"
+                    style={{
+                      color: isActive ? "var(--text-primary)" : "var(--text-muted)",
+                      fontWeight: isActive ? 500 : 400,
+                    }}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Rising Entities */}
+      {/* Trending Entities - simplified */}
       {entities.length > 0 && (
         <div
-          className="border-b px-4 py-3 md:px-6"
+          className="border-b"
           style={{ borderColor: "var(--border)" }}
         >
-          <div className="mx-auto max-w-4xl">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="mx-auto max-w-3xl px-6 py-3">
+            <div className="flex items-center gap-4">
               <span
-                className="text-xs uppercase tracking-wider"
+                className="text-xs tracking-wide"
                 style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
               >
-                Trending:
+                Trending
               </span>
-              {entities.map((entity) => (
-                <span
-                  key={entity.id}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm"
-                  style={{
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  <span style={{ color: "var(--accent)" }}>
-                    {entity.type === "person" ? "@" : entity.type === "organization" ? "+" : "#"}
-                  </span>
-                  {entity.name}
+              <div className="flex items-center gap-3">
+                {visibleEntities.map((entity, i) => {
+                  const isActive = entityFilter === entity.id;
+                  return (
+                    <button
+                      key={entity.id}
+                      onClick={() => setEntityFilter(isActive ? null : entity.id)}
+                      className="text-sm transition-colors"
+                      style={{
+                        color: isActive
+                          ? "var(--accent)"
+                          : i === 0
+                            ? "var(--text-primary)"
+                            : "var(--text-secondary)",
+                        fontWeight: isActive || i === 0 ? 500 : 400,
+                      }}
+                    >
+                      <span style={{ color: "var(--text-faint)", marginRight: 2 }}>
+                        {entity.type === "person" || entity.type === "athlete" ? "@" : "#"}
+                      </span>
+                      {entity.name}
+                    </button>
+                  );
+                })}
+                {hiddenEntityCount > 0 && (
                   <span
-                    className="text-xs tabular-nums"
-                    style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+                    className="text-xs"
+                    style={{ color: "var(--text-faint)" }}
                   >
-                    {entity.velocityWeek}
+                    +{hiddenEntityCount} more
                   </span>
-                </span>
-              ))}
+                )}
+                {entityFilter && (
+                  <button
+                    onClick={() => setEntityFilter(null)}
+                    className="text-xs transition-colors"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Feed */}
-      <main className="mx-auto max-w-4xl px-4 py-4 md:px-6">
-        <div className="space-y-1">
-          {filteredLinks.map((link) => {
-            const isHighVelocity = link.velocity >= 5;
-            return (
-              <article
-                key={link.id}
-                className="group flex items-start gap-4 rounded px-3 py-3 transition-colors"
-                style={{
-                  background: isHighVelocity ? "var(--accent-subtle)" : "transparent",
-                  borderLeft: isHighVelocity ? "2px solid var(--accent)" : "2px solid transparent",
-                }}
-              >
-                {/* Time */}
-                <div
-                  className="w-12 flex-shrink-0 pt-0.5 text-sm tabular-nums"
-                  style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
-                >
-                  {formatTime(link.firstSeenAt)}
-                </div>
+      <main className="mx-auto max-w-3xl px-6 py-8">
+        {/* Stories Section */}
+        {filteredStories.length > 0 && (
+          <section className="mb-12">
+            <h2
+              className="text-xs tracking-wide mb-6 pb-3 border-b"
+              style={{
+                color: "var(--text-faint)",
+                fontFamily: "var(--font-mono)",
+                borderColor: "var(--border)",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Stories
+            </h2>
+            <div
+              className="p-6"
+              style={{ background: "var(--surface-cream)" }}
+            >
+              <div className="space-y-6">
+                {filteredStories.map((story, storyIndex) => {
+                  const isExpanded = expandedStories.has(story.id);
+                  const isHighVelocity = story.combinedVelocity >= 5;
 
-                {/* Velocity Badge */}
-                <div
-                  className="w-10 flex-shrink-0 pt-0.5 text-sm tabular-nums text-center"
-                  style={{
-                    color: link.velocity >= 5 ? "var(--accent)" : link.velocity >= 2 ? "var(--text-secondary)" : "var(--text-faint)",
-                    fontFamily: "var(--font-mono)",
-                    fontWeight: link.velocity >= 5 ? 600 : 400,
-                  }}
-                >
-                  v{link.velocity}
-                </div>
+                  return (
+                    <article
+                      key={story.id}
+                      className="feed-item"
+                      style={{
+                        borderLeft: "2px solid var(--border)",
+                        paddingLeft: "1.5rem",
+                      }}
+                    >
+                      <div
+                        className="cursor-pointer"
+                        onClick={() => toggleStory(story.id)}
+                      >
+                        {/* Title */}
+                        <h3
+                          className="text-base leading-relaxed"
+                          style={{
+                            color: "var(--text-primary)",
+                            fontFamily: "var(--font-body)",
+                            fontWeight: isHighVelocity ? 600 : 500,
+                          }}
+                        >
+                          {story.title}
+                        </h3>
 
-                {/* Content */}
-                <div className="min-w-0 flex-1">
-                  <a
-                    href={link.canonicalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-base leading-snug transition-opacity hover:opacity-70"
+                        {/* Meta */}
+                        <div
+                          className="mt-2 flex items-center gap-2 text-xs"
+                          style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
+                        >
+                          <span
+                            className="tabular-nums"
+                            style={{ color: isHighVelocity ? "var(--accent)" : "var(--text-muted)" }}
+                          >
+                            {story.linkCount} articles
+                          </span>
+                          <span style={{ color: "var(--border)" }}>·</span>
+                          <span className="tabular-nums">
+                            {story.combinedVelocity} sources
+                          </span>
+                          <span style={{ color: "var(--border)" }}>·</span>
+                          <span className="tabular-nums">
+                            {formatTime(story.lastLinkAt)}
+                          </span>
+                          <span
+                            className="ml-auto transition-transform"
+                            style={{
+                              transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                              color: "var(--text-faint)",
+                            }}
+                          >
+                            ▼
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Expanded Links */}
+                      {isExpanded && (
+                        <div className="mt-4 space-y-2">
+                          {story.links.map((link) => (
+                            <a
+                              key={link.id}
+                              href={link.canonicalUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-baseline gap-3 py-1.5 transition-colors hover:text-accent"
+                              style={{ textDecoration: "none" }}
+                            >
+                              <span
+                                className="text-xs tabular-nums shrink-0"
+                                style={{
+                                  color: "var(--text-faint)",
+                                  fontFamily: "var(--font-mono)",
+                                  width: "5rem",
+                                }}
+                              >
+                                {link.domain}
+                              </span>
+                              <span
+                                className="text-sm truncate"
+                                style={{ color: "var(--text-secondary)" }}
+                              >
+                                {link.title}
+                              </span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Separator between stories */}
+                      {storyIndex < filteredStories.length - 1 && (
+                        <div
+                          className="mt-6"
+                          style={{ borderTop: "1px dashed var(--border)" }}
+                        />
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Latest Links Section */}
+        {filteredLinks.length > 0 && (
+          <section>
+            <h2
+              className="text-xs tracking-wide mb-6 pb-3 border-b"
+              style={{
+                color: "var(--text-faint)",
+                fontFamily: "var(--font-mono)",
+                borderColor: "var(--border)",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Latest
+            </h2>
+            <div className="divide-y" style={{ borderColor: "var(--border-subtle)" }}>
+              {filteredLinks.map((link, index) => {
+                const isHighVelocity = link.velocity >= 5;
+                return (
+                  <article
+                    key={link.id}
+                    className="feed-item py-5"
                     style={{
-                      color: "var(--text-primary)",
-                      textDecoration: "none",
-                      fontWeight: isHighVelocity ? 500 : 400,
+                      borderColor: "var(--border-subtle)",
                     }}
                   >
-                    {link.title}
-                  </a>
-                  <div
-                    className="mt-1 flex items-center gap-2 text-sm"
-                    style={{ color: "var(--text-faint)" }}
-                  >
-                    <span>{link.domain}</span>
-                    <span>·</span>
-                    <span>{link.sources.slice(0, 2).join(", ")}{link.sources.length > 2 && ` +${link.sources.length - 2}`}</span>
-                  </div>
-                </div>
+                    <div className="flex items-baseline gap-4">
+                      {/* Time */}
+                      <time
+                        className="w-12 shrink-0 text-xs tabular-nums"
+                        style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+                      >
+                        {formatTime(link.firstSeenAt)}
+                      </time>
 
-                {/* Category */}
-                {link.category && (
-                  <div
-                    className="flex-shrink-0 text-xs"
-                    style={{ color: "var(--text-faint)" }}
-                  >
-                    {link.category}
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </div>
+                      {/* Content */}
+                      <div className="min-w-0 flex-1">
+                        <a
+                          href={link.canonicalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-base leading-snug transition-colors"
+                          style={{
+                            color: "var(--text-primary)",
+                            textDecoration: "none",
+                            fontFamily: "var(--font-body)",
+                            fontWeight: isHighVelocity ? 500 : 400,
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
+                        >
+                          {link.title}
+                        </a>
+                        <div
+                          className="mt-1.5 flex items-center gap-2 text-xs"
+                          style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+                        >
+                          <span>{link.domain}</span>
+                          <span>·</span>
+                          <span
+                            className="tabular-nums"
+                            style={{ color: isHighVelocity ? "var(--accent)" : "var(--text-faint)" }}
+                          >
+                            {link.velocity} {link.velocity === 1 ? "source" : "sources"}
+                          </span>
+                          {link.sources[0] && (
+                            <>
+                              <span>·</span>
+                              <span>via {link.sources[0]}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
-        {filteredLinks.length === 0 && (
+        {filteredStories.length === 0 && filteredLinks.length === 0 && (
           <div
-            className="py-12 text-center text-sm"
+            className="py-16 text-center"
             style={{ color: "var(--text-faint)" }}
           >
-            No links match the current filters.
+            <p style={{ fontFamily: "var(--font-body)" }}>
+              No stories or links match the current filters.
+            </p>
           </div>
         )}
       </main>

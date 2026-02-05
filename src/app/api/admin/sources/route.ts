@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
   const name = formData.get("name") as string;
   const url = formData.get("url") as string;
   const includeOwnLinks = formData.get("includeOwnLinks") === "true";
+  const pollFrequency = formData.get("pollFrequency") as string || "realtime";
 
   if (!name || !url) {
     return NextResponse.json(
@@ -20,6 +21,10 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  // Validate pollFrequency
+  const validFrequencies = ["realtime", "hourly", "daily"];
+  const frequency = validFrequencies.includes(pollFrequency) ? pollFrequency : "realtime";
 
   try {
     await prisma.source.create({
@@ -29,6 +34,7 @@ export async function POST(request: NextRequest) {
         type: "rss",
         active: true,
         includeOwnLinks,
+        pollFrequency: frequency,
       },
     });
 

@@ -13,6 +13,7 @@ export {
   getBatchEnrichmentPrompt,
   type EnrichmentContext,
   type EnrichmentResult,
+  type EntityType,
 } from "./enrichment";
 
 // Layer 2: Cultural analysis

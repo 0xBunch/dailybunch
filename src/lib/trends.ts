@@ -252,6 +252,7 @@ export async function getRisingEntities(limit = 10): Promise<
   return prisma.entity.findMany({
     where: {
       active: true,
+      showInTrending: true, // Filter out entities hidden from trending
       velocityTrend: "rising",
       velocityWeek: { gt: 0 },
     },

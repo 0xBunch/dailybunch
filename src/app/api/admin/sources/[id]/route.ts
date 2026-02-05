@@ -58,6 +58,14 @@ export async function POST(
     }
   }
 
+  if (formData.has("pollFrequency")) {
+    const frequency = formData.get("pollFrequency") as string;
+    // Validate frequency value
+    if (["realtime", "hourly", "daily"].includes(frequency)) {
+      updateData.pollFrequency = frequency;
+    }
+  }
+
   try {
     await prisma.source.update({
       where: { id },

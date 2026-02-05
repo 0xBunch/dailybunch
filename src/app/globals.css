@@ -1,46 +1,48 @@
 @import "tailwindcss";
 
 :root {
-  /* Core palette - restrained, editorial */
+  /* Core palette - restrained, editorial with warmth */
   --background: #ffffff;
   --foreground: #111111;
-  --surface: #fafafa;
+  --surface: #fafaf8;
   --surface-elevated: #ffffff;
-  --surface-cream: #f8f7f4;
-  --border: #e8e8e8;
-  --border-subtle: #f0f0f0;
+  --surface-cream: #f7f6f3;
+  --surface-dim: #f2f1ee;
+  --border: #e5e5e3;
+  --border-subtle: #f0efed;
 
-  /* Text hierarchy */
+  /* Text hierarchy - refined contrast */
   --text-primary: #111111;
-  --text-secondary: #555555;
-  --text-muted: #888888;
-  --text-faint: #aaaaaa;
+  --text-secondary: #4a4a4a;
+  --text-muted: #7a7a7a;
+  --text-faint: #a0a0a0;
   --ink: #111111;
-  --muted: #888888;
+  --muted: #7a7a7a;
 
   /* Accent - single warm accent for emphasis */
   --accent: #c45d2c;
-  --accent-subtle: rgba(196, 93, 44, 0.08);
+  --accent-subtle: rgba(196, 93, 44, 0.06);
   --accent-warm: #c45d2c;
 
   /* Status (muted, editorial) */
   --status-success: #4a6741;
   --status-warning: #9a7b2c;
   --status-error: #944444;
-  --status-muted: #888888;
+  --status-muted: #7a7a7a;
 
   /* Typography */
-  --font-headline: "Special Gothic Expanded One", "Times New Roman", Times, serif;
-  --font-body: "Special Gothic Condensed One", "Times New Roman", Times, serif;
+  --font-headline: "Satoshi", system-ui, -apple-system, sans-serif;
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
   --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Monaco, monospace;
 
-  /* Spacing scale */
+  /* Spacing scale - expanded */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 1rem;
   --space-lg: 1.5rem;
   --space-xl: 2rem;
   --space-2xl: 3rem;
+  --space-3xl: 4rem;
 }
 
 /* Base */
@@ -71,20 +73,19 @@ a:hover {
   text-decoration-color: var(--text-primary);
 }
 
-/* Headlines - Special Gothic Expanded One, all caps */
+/* Headlines - Satoshi, sentence case */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-headline);
-  font-weight: 400;
-  line-height: 1.1;
+  font-weight: 600;
+  line-height: 1.2;
   text-wrap: balance;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
-h1 { font-size: 2rem; }
-h2 { font-size: 1.25rem; }
-h3 { font-size: 1rem; }
+h1 { font-size: 1.75rem; font-weight: 600; }
+h2 { font-size: 1.125rem; font-weight: 500; }
+h3 { font-size: 1rem; font-weight: 500; }
 
 /* Paragraphs */
 p {
@@ -155,9 +156,9 @@ input::placeholder, textarea::placeholder {
 /* Utility: Label styling */
 .label {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
 }
 
@@ -201,4 +202,44 @@ input::placeholder, textarea::placeholder {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideActive {
+  from { transform: scale(0.95); }
+  to { transform: scale(1); }
+}
+
+/* Feed item staggered entrance */
+.feed-item {
+  animation: fadeIn 300ms ease-out backwards;
+}
+
+.feed-item:nth-child(1) { animation-delay: 0ms; }
+.feed-item:nth-child(2) { animation-delay: 30ms; }
+.feed-item:nth-child(3) { animation-delay: 60ms; }
+.feed-item:nth-child(4) { animation-delay: 90ms; }
+.feed-item:nth-child(5) { animation-delay: 120ms; }
+.feed-item:nth-child(6) { animation-delay: 150ms; }
+.feed-item:nth-child(7) { animation-delay: 180ms; }
+.feed-item:nth-child(8) { animation-delay: 210ms; }
+.feed-item:nth-child(9) { animation-delay: 240ms; }
+.feed-item:nth-child(10) { animation-delay: 270ms; }
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .feed-item {
+    animation: none;
+  }
 }

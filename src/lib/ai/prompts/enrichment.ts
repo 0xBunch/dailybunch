@@ -78,7 +78,7 @@ Respond with valid JSON only, no markdown code blocks:
   "summary": "2-3 sentence summary following the voice guidelines above",
   "matchedEntities": ["Entity Name 1", "Entity Name 2"],
   "suggestedEntities": [
-    {"name": "New Person/Company", "type": "person|organization|product", "aliases": ["alias1"]}
+    {"name": "New Person/Company", "type": "person|organization|product|athlete|brand|event|place|media_outlet", "aliases": ["alias1"]}
   ]
 }
 
@@ -149,6 +149,8 @@ IMPORTANT: Respond ONLY with the JSON array, no markdown code blocks, no other t
 /**
  * Schema for enrichment response validation
  */
+export type EntityType = "person" | "organization" | "product" | "athlete" | "brand" | "event" | "place" | "media_outlet";
+
 export interface EnrichmentResult {
   id?: string;
   category: string;
@@ -157,7 +159,7 @@ export interface EnrichmentResult {
   matchedEntities: string[];
   suggestedEntities: Array<{
     name: string;
-    type: "person" | "organization" | "product";
+    type: EntityType;
     aliases: string[];
   }>;
 }

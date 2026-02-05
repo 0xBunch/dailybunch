@@ -40,10 +40,17 @@ const BLOCKED_TITLE_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
   // Generic garbage
   { pattern: /^untitled$/i, reason: "garbage" },
   { pattern: /^home$/i, reason: "garbage" },
+  { pattern: /^home\s*[|\\\/–—-]\s*.+/i, reason: "garbage" },  // "Home | Site", "Home \ Site"
   { pattern: /^index$/i, reason: "garbage" },
   { pattern: /^loading/i, reason: "garbage" },
   { pattern: /^please wait/i, reason: "garbage" },
   { pattern: /^redirecting/i, reason: "garbage" },
+  { pattern: /^welcome to/i, reason: "garbage" },
+  { pattern: /^homepage$/i, reason: "garbage" },
+  // Domain-only titles (e.g., "nytimes.com", "www.example.com")
+  { pattern: /^(www\.)?[a-z0-9][-a-z0-9]*(\.[a-z]{2,})+$/i, reason: "garbage" },
+  // Very short titles (1-2 chars) that aren't meaningful
+  { pattern: /^.{1,2}$/, reason: "garbage" },
 ];
 
 /**

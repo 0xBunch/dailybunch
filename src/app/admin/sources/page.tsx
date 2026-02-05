@@ -179,16 +179,34 @@ export default async function SourcesAdminPage() {
                 />
               </div>
             </div>
-            <div className="mt-6 flex items-center justify-between">
-              <label className="flex items-center gap-2 text-sm" style={{ color: "var(--muted)" }}>
-                <input
-                  type="checkbox"
-                  name="includeOwnLinks"
-                  value="true"
-                  className="size-4"
-                />
-                Include source&apos;s own links
-              </label>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-sm" style={{ color: "var(--muted)" }}>
+                  <input
+                    type="checkbox"
+                    name="includeOwnLinks"
+                    value="true"
+                    className="size-4"
+                  />
+                  Include source&apos;s own links
+                </label>
+                <label className="flex items-center gap-2 text-sm" style={{ color: "var(--muted)" }}>
+                  <span>Poll:</span>
+                  <select
+                    name="pollFrequency"
+                    defaultValue="realtime"
+                    className="text-sm px-2 py-1"
+                    style={{
+                      border: "1px solid var(--border)",
+                      background: "var(--surface-cream)",
+                    }}
+                  >
+                    <option value="realtime">15min</option>
+                    <option value="hourly">Hourly</option>
+                    <option value="daily">Daily</option>
+                  </select>
+                </label>
+              </div>
               <button
                 type="submit"
                 className="px-4 py-2 text-sm transition-opacity hover:opacity-80"
@@ -217,6 +235,9 @@ export default async function SourcesAdminPage() {
           </span>
           <span>
             <strong>Tier:</strong> T1=Major Pubs, T2=Top Newsletters, T3=Quality Blogs, T4=Aggregators
+          </span>
+          <span>
+            <strong>Poll:</strong> 15min=Realtime, Hourly, Daily
           </span>
         </div>
 
@@ -398,6 +419,35 @@ export default async function SourcesAdminPage() {
                         <option value="TIER_2">T2 (7)</option>
                         <option value="TIER_3">T3 (5)</option>
                         <option value="TIER_4">T4 (2)</option>
+                      </select>
+                      <button
+                        type="submit"
+                        className="text-xs px-2 py-1 transition-opacity hover:opacity-80"
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          background: "var(--ink)",
+                          color: "#fff",
+                          border: "none",
+                        }}
+                      >
+                        Set
+                      </button>
+                    </form>
+                    <form action={`/api/admin/sources/${source.id}`} method="POST" className="flex items-center gap-1">
+                      <select
+                        name="pollFrequency"
+                        defaultValue={source.pollFrequency}
+                        className="text-xs px-2 py-1"
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          background: "var(--surface-cream)",
+                          border: "1px solid var(--border)",
+                          color: "var(--ink)",
+                        }}
+                      >
+                        <option value="realtime">15min</option>
+                        <option value="hourly">Hourly</option>
+                        <option value="daily">Daily</option>
                       </select>
                       <button
                         type="submit"

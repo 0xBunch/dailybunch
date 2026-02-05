@@ -187,8 +187,15 @@ export async function POST(request: NextRequest) {
 
   const op = log.operationStart("api", "ingest/poll", {});
 
+  // Poll frequency intervals in milliseconds
+  const POLL_INTERVALS = {
+    realtime: 15 * 60 * 1000,  // 15 minutes
+    hourly: 60 * 60 * 1000,    // 1 hour
+    daily: 24 * 60 * 60 * 1000 // 24 hours
+  };
+
   // Get all active RSS sources with their settings
-  const sources = await prisma.source.findMany({
+  const allSources = await prisma.source.findMany({
     where: {
       type: "rss",
       active: true,
@@ -198,13 +205,31 @@ export async function POST(request: NextRequest) {
       name: true,
       url: true,
       includeOwnLinks: true,
+      pollFrequency: true,
+      lastFetchedAt: true,
     },
   });
+
+  // Filter to sources that are due for polling based on their frequency
+  const now = Date.now();
+  const sources = allSources.filter((source) => {
+    // If never fetched, always poll
+    if (!source.lastFetchedAt) return true;
+
+    const interval = POLL_INTERVALS[source.pollFrequency as keyof typeof POLL_INTERVALS] || POLL_INTERVALS.realtime;
+    const lastFetched = new Date(source.lastFetchedAt).getTime();
+
+    return (now - lastFetched) >= interval;
+  });
+
+  const skippedSources = allSources.length - sources.length;
 
   log.info("Starting RSS poll", {
     service: "api",
     operation: "ingest/poll",
-    sourceCount: sources.length,
+    totalSources: allSources.length,
+    sourcesToPoll: sources.length,
+    skippedByFrequency: skippedSources,
   });
 
   // Filter sources with valid URLs and include settings
@@ -357,7 +382,9 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     status: "ok",
+    totalSources: allSources.length,
     sourcesPolled: sources.length,
+    skippedByFrequency: skippedSources,
     sourcesSucceeded,
     sourcesFailed,
     totalItemsFound,

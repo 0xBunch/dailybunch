@@ -49,6 +49,7 @@ model Source {
   categoryId    String?
   active        Boolean   @default(true)
   lastFetchedAt DateTime?
+  pollFrequency String    @default("realtime") // "realtime" (15min) | "hourly" | "daily"
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -74,6 +75,7 @@ model Source {
   @@index([type])
   @@index([active])
   @@index([categoryId])
+  @@index([pollFrequency])
 }
 
 // Individual posts/items from RSS feeds or newsletters
@@ -217,6 +219,7 @@ model Entity {
   type      String   // "person" | "organization" | "product"
   aliases   String[] // Alternative names/handles
   active    Boolean  @default(true)
+  showInTrending Boolean @default(true) // false = hide from trending section
 
   // Velocity tracking (computed, updated periodically)
   velocityWeek    Int       @default(0) // Links mentioning this entity in last 7 days
@@ -233,6 +236,7 @@ model Entity {
   @@index([active])
   @@index([slug])
   @@index([velocityWeek])
+  @@index([showInTrending])
 }
 
 model LinkEntity {
@@ -261,6 +265,16 @@ model EntitySuggestion {
 
   @@index([status])
   @@index([createdAt])
+}
+
+// Block certain names from being extracted as entities
+model EntityBlocklist {
+  id        String   @id @default(cuid())
+  name      String   @unique // The name to block (case-insensitive matching)
+  reason    String?  // Optional note about why this is blocked
+  createdAt DateTime @default(now())
+
+  @@index([name])
 }
 
 // ============================================

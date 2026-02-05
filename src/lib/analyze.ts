@@ -18,7 +18,7 @@ import prisma from "@/lib/db";
 import { Errors, ServiceError, wrapError } from "./errors";
 import { log } from "./logger";
 import { withRetry, RetryPresets } from "./retry";
-import { getEnrichmentPrompt, type EnrichmentContext } from "./ai/prompts";
+import { getEnrichmentPrompt, type EnrichmentContext, type EntityType } from "./ai/prompts";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
@@ -60,7 +60,7 @@ export interface AnalysisResult {
   matchedEntityIds: string[];
   suggestedEntities: Array<{
     name: string;
-    type: "person" | "organization" | "product";
+    type: EntityType;
     aliases: string[];
   }>;
 }
@@ -337,7 +337,17 @@ export async function analyzeAndUpdateLink(
     }
 
     // Queue suggested entities for approval (de-dupe: skip if pending suggestion exists)
+    // Also skip if the name is on the blocklist
     for (const suggestion of result.suggestedEntities) {
+      // Check blocklist
+      const isBlocked = await prisma.entityBlocklist.findFirst({
+        where: { name: { equals: suggestion.name, mode: "insensitive" } },
+      });
+
+      if (isBlocked) {
+        continue; // Skip blocked names
+      }
+
       const existingSuggestion = await prisma.entitySuggestion.findFirst({
         where: {
           name: { equals: suggestion.name, mode: "insensitive" },
