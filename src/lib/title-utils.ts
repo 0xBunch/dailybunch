@@ -72,7 +72,7 @@ export function isBlockedTitle(title: string | null): string | null {
  * "AI Regulation | NYTimes" → "AI Regulation"
  * "New iPhone - TechCrunch" → "New iPhone"
  */
-function stripPublicationSuffix(title: string): string {
+export function stripPublicationSuffix(title: string): string {
   // Strip after pipe (most common)
   let result = title.split(/\s*\|\s*/)[0];
 

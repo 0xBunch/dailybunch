@@ -100,7 +100,6 @@ export default async function LatestPage({
           <nav className="flex items-center gap-6 text-sm">
             <Link href="/dashboard" className="link-muted">Trending</Link>
             <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>Latest</span>
-            <Link href="/admin" className="link-muted">Admin</Link>
           </nav>
         </div>
       </header>

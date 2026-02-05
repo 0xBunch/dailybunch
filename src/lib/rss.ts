@@ -12,6 +12,7 @@
 import { Errors, wrapError, type ErrorContext } from "./errors";
 import { log } from "./logger";
 import { withRetry, RetryPresets } from "./retry";
+import { decodeHtmlEntities } from "./title-utils";
 
 // Request timeout in ms
 const FEED_TIMEOUT = 15000;
@@ -243,20 +244,6 @@ function parseAtomEntry(xml: string): FeedItem | null {
     description: summaryMatch ? cleanCdata(summaryMatch[1]).substring(0, 500) : undefined,
     contentLinks,
   };
-}
-
-function decodeHtmlEntities(str: string): string {
-  return str
-    .replace(/&ndash;/g, "–")
-    .replace(/&mdash;/g, "—")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)));
 }
 
 function cleanCdata(str: string): string {

@@ -124,7 +124,6 @@ export function DashboardClient({ stories, links, categories, entities }: Dashbo
           <nav className="flex items-center gap-6 text-sm">
             <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>Trending</span>
             <Link href="/links" className="link-muted">Latest</Link>
-            <Link href="/admin" className="link-muted">Admin</Link>
           </nav>
         </div>
       </header>
@@ -236,8 +235,8 @@ export function DashboardClient({ stories, links, categories, entities }: Dashbo
 
       {/* Main content */}
       <main className="flex-1 mx-auto max-w-3xl w-full px-6 py-8">
-        {/* Stories */}
-        {filteredStories.length > 0 && (
+        {/* Stories - hidden when category filter is active (stories don't have category data) */}
+        {filteredStories.length > 0 && categoryFilter === null && (
           <section className="mb-12">
             <h2 className="section-header">Stories</h2>
             <div className="space-y-1">

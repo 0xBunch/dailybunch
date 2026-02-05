@@ -7,6 +7,7 @@
 
 import prisma from "@/lib/db";
 import { log } from "@/lib/logger";
+import { decodeHtmlEntities, stripPublicationSuffix } from "@/lib/title-utils";
 
 /**
  * Cosine similarity between two embedding vectors
@@ -106,7 +107,7 @@ function clusterLinks(
       clusters.push({
         links: cluster,
         centroid,
-        representativeTitle: cluster[0].title, // Highest velocity link
+        representativeTitle: stripPublicationSuffix(decodeHtmlEntities(cluster[0].title)), // Clean title from highest velocity link
       });
     }
   }
