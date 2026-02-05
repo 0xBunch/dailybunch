@@ -58,6 +58,21 @@ Avoid generic AI-generated aesthetics:
 Interpret creatively and make unexpected choices that feel genuinely designed for the context. Vary between light and dark themes, different fonts, different aesthetics. You still tend to converge on common choices (Space Grotesk, for example) across generations. Avoid this: it is critical that you think outside the box!
 </frontend_aesthetics>
 
+## Deployment Rules
+
+**CRITICAL: Always push to production after completing work.**
+
+1. After finishing any feature/fix, run `npm run build` to verify
+2. Commit with descriptive message and push to `main`
+3. Railway auto-deploys from main - no manual deploy needed
+4. Don't accumulate multiple features without pushing
+5. Never commit credentials or secrets (they're in `.gitignore`)
+
+```bash
+# Standard deploy flow
+npm run build && git add -A && git commit -m "feat: description" && git push origin main
+```
+
 ## Data Flow
 
 1. **Ingest**: RSS feeds polled on schedule, links extracted
