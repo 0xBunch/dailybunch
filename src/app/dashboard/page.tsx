@@ -50,6 +50,9 @@ export default async function DashboardPage() {
                 domain: true,
                 firstSeenAt: true,
                 categoryId: true,
+                entities: {
+                  select: { entityId: true },
+                },
               },
             },
           },
@@ -126,6 +129,11 @@ export default async function DashboardPage() {
       // Clean the story title
       const cleanedTitle = stripPublicationSuffix(decodeHtmlEntities(story.title));
 
+      // Collect entity IDs from all links in this story
+      const entityIds = [...new Set(
+        story.links.flatMap(sl => sl.link.entities.map(e => e.entityId))
+      )];
+
       return {
         id: story.id,
         title: cleanedTitle,
@@ -135,6 +143,7 @@ export default async function DashboardPage() {
         primaryLink: storyLinks[0],
         links: storyLinks,
         lastLinkAt: story.lastLinkAt.toISOString(),
+        entityIds,
       };
     })
     // Filter out stories with garbage or blocked titles

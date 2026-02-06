@@ -20,6 +20,7 @@ interface Story {
   primaryLink: StoryLink;
   links: StoryLink[];
   lastLinkAt: string;
+  entityIds: string[];
 }
 
 interface LinkItem {
@@ -67,9 +68,10 @@ export function DashboardClient({ stories, links, categories, entities }: Dashbo
     return stories.filter((story) => {
       if (velocityFilter === "v2+" && story.combinedVelocity < 2) return false;
       if (velocityFilter === "v5+" && story.combinedVelocity < 5) return false;
+      if (entityFilter && !story.entityIds.includes(entityFilter)) return false;
       return true;
     });
-  }, [stories, velocityFilter]);
+  }, [stories, velocityFilter, entityFilter]);
 
   const filteredLinks = useMemo(() => {
     return links.filter((link) => {
