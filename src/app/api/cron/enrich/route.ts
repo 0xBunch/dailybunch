@@ -25,6 +25,43 @@ interface EnrichmentStats {
   failed: number;
   skipped: number;
   blocked: number;
+  resetGarbage: number;
+}
+
+/**
+ * Reset links that were previously enriched but have garbage titles
+ * (e.g. "Please update your browser" from YouTube).
+ * Sets them back to pending so the pipeline can recover real titles.
+ */
+async function resetGarbageTitledLinks(): Promise<number> {
+  const garbageLinks = await prisma.link.findMany({
+    where: {
+      isBlocked: false,
+      enrichmentStatus: { in: ["success", "fallback"] },
+      title: { not: null },
+    },
+    select: { id: true, title: true, domain: true },
+    take: 20,
+  });
+
+  let reset = 0;
+  for (const link of garbageLinks) {
+    if (!link.title) continue;
+    const reason = isBlockedTitle(link.title);
+    if (reason) {
+      await prisma.link.update({
+        where: { id: link.id },
+        data: {
+          title: null,
+          enrichmentStatus: "pending",
+          enrichmentRetryCount: 0,
+        },
+      });
+      reset++;
+      console.log(`[Enrich Cron] Reset garbage title: "${link.title}" (${link.domain})`);
+    }
+  }
+  return reset;
 }
 
 async function processEnrichmentBatch(): Promise<EnrichmentStats> {
@@ -35,7 +72,11 @@ async function processEnrichmentBatch(): Promise<EnrichmentStats> {
     failed: 0,
     skipped: 0,
     blocked: 0,
+    resetGarbage: 0,
   };
+
+  // First, reset any previously-enriched links with garbage titles
+  stats.resetGarbage = await resetGarbageTitledLinks();
 
   // Get pending links that haven't exceeded retry limit
   const pendingLinks = await prisma.link.findMany({
@@ -211,7 +252,8 @@ export async function GET() {
       `${stats.fallback} fallback,`,
       `${stats.blocked} blocked,`,
       `${stats.failed} failed,`,
-      `${stats.skipped} skipped.`,
+      `${stats.skipped} skipped,`,
+      `${stats.resetGarbage} garbage reset.`,
       `${remainingPending} remaining.`
     );
 
