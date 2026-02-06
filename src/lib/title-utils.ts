@@ -18,6 +18,11 @@ const BLOCKED_TITLE_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
   { pattern: /verify you are human/i, reason: "robot" },
   { pattern: /cloudflare/i, reason: "robot" },
   { pattern: /ddos protection/i, reason: "robot" },
+  // Browser warnings (e.g. YouTube non-JS pages)
+  { pattern: /please update your browser/i, reason: "garbage" },
+  { pattern: /browser.*not supported/i, reason: "garbage" },
+  { pattern: /enable javascript/i, reason: "garbage" },
+  { pattern: /javascript.*required/i, reason: "garbage" },
   // Access denied
   { pattern: /access denied/i, reason: "access_denied" },
   { pattern: /403 forbidden/i, reason: "access_denied" },

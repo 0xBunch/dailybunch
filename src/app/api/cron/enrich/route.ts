@@ -67,26 +67,26 @@ async function processEnrichmentBatch(): Promise<EnrichmentStats> {
   for (const link of pendingLinks) {
     stats.processed++;
 
-    // Skip if already has a title (shouldn't happen, but safety check)
-    // Also check if existing title is a blocked page
+    // Skip if already has a good title
+    // If title is garbage (e.g. "Please update your browser"), clear it and re-enrich
     if (link.title && link.title.trim()) {
       const blockedReason = isBlockedTitle(link.title);
-      await prisma.link.update({
-        where: { id: link.id },
-        data: {
-          enrichmentStatus: "success",
-          enrichmentSource: "html",
-          enrichmentLastAttempt: new Date(),
-          ...(blockedReason ? { isBlocked: true, blockedReason } : {}),
-        },
-      });
       if (blockedReason) {
-        stats.blocked++;
-        console.log(`[Enrich Cron] Blocked existing ${link.domain}: ${blockedReason}`);
+        // Clear garbage title so enrichment pipeline can try to recover the real one
+        console.log(`[Enrich Cron] Garbage title for ${link.domain}: "${link.title}" — re-enriching`);
+        link.title = null;
       } else {
+        await prisma.link.update({
+          where: { id: link.id },
+          data: {
+            enrichmentStatus: "success",
+            enrichmentSource: "html",
+            enrichmentLastAttempt: new Date(),
+          },
+        });
         stats.skipped++;
+        continue;
       }
-      continue;
     }
 
     try {

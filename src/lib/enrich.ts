@@ -15,13 +15,15 @@ import Anthropic from "@anthropic-ai/sdk";
 import { extractWithMercury } from "./mercury";
 import { extractWithJina } from "./jina";
 import { fetchMetadataWithFirecrawl, isFirecrawlConfigured } from "./firecrawl";
-import { formatUrlAsTitle } from "./title-utils";
+import { formatUrlAsTitle, isBlockedTitle } from "./title-utils";
+import { detectMediaType } from "./media-type";
 
 export type EnrichmentStatus = "success" | "fallback" | "failed";
 export type EnrichmentSource =
   | "mercury"
   | "jina"
   | "firecrawl"
+  | "oembed"
   | "html"
   | "ai"
   | "url_path";
@@ -52,8 +54,8 @@ export interface LinkToEnrich {
 export async function enrichLink(link: LinkToEnrich): Promise<EnrichmentResult> {
   const { canonicalUrl, domain } = link;
 
-  // If link already has a good title, just return success
-  if (link.title && link.title.trim()) {
+  // If link already has a good title (not garbage), just return success
+  if (link.title && link.title.trim() && !isBlockedTitle(link.title)) {
     return {
       status: "success",
       source: "html", // Assume it came from original ingest
@@ -63,6 +65,27 @@ export async function enrichLink(link: LinkToEnrich): Promise<EnrichmentResult> 
       imageUrl: null,
       publishedAt: null,
     };
+  }
+
+  // Tier 0: oEmbed (free, fast, works for YouTube/Vimeo)
+  if (detectMediaType(canonicalUrl) === "video") {
+    try {
+      const oembed = await fetchOembedTitle(canonicalUrl);
+      if (oembed?.title) {
+        console.log(`[Enrich] oEmbed success for ${domain}`);
+        return {
+          status: "success",
+          source: "oembed",
+          title: oembed.title,
+          description: null,
+          author: oembed.author ?? null,
+          imageUrl: null,
+          publishedAt: null,
+        };
+      }
+    } catch (error) {
+      console.warn(`[Enrich] oEmbed error for ${domain}:`, error);
+    }
   }
 
   // Tier 1: Mercury Parser (free, fast)
@@ -155,6 +178,30 @@ export async function enrichLink(link: LinkToEnrich): Promise<EnrichmentResult> 
     author: null,
     imageUrl: null,
     publishedAt: null,
+  };
+}
+
+/**
+ * Fetch title via oEmbed API (YouTube, Vimeo, etc.)
+ * Free, no API key required.
+ */
+async function fetchOembedTitle(
+  url: string
+): Promise<{ title: string; author: string | null } | null> {
+  const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+
+  const response = await fetch(oembedUrl, {
+    signal: AbortSignal.timeout(5000),
+  });
+
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  if (!data.title) return null;
+
+  return {
+    title: data.title,
+    author: data.author_name ?? null,
   };
 }
 
