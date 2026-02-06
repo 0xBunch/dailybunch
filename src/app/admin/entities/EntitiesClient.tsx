@@ -3,12 +3,13 @@
 /**
  * Entities Client Component
  *
- * Interactive entity management with search, filter, sort, and controls.
+ * Interactive entity management with URL-driven search, filter, sort.
+ * Filtering/sorting/pagination happen server-side via searchParams.
  */
 
 import Link from "next/link";
-import { useState, useMemo, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useTransition, useCallback } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 interface Entity {
   id: string;
@@ -37,11 +38,29 @@ interface BlocklistEntry {
 interface Props {
   entities: Entity[];
   suggestions: Suggestion[];
+  suggestionTypeCounts: Record<string, number>;
   blocklist: BlocklistEntry[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalCount: number;
+  };
+  filters: {
+    search: string;
+    type: string;
+    status: string;
+    sort: string;
+    dir: string;
+  };
+  stats: {
+    total: number;
+    active: number;
+    hidden: number;
+    pending: number;
+  };
 }
 
 type SortField = "name" | "type" | "linkCount" | "velocityWeek" | "createdAt";
-type SortDirection = "asc" | "desc";
 
 const ENTITY_TYPES = ["person", "organization", "product", "athlete", "brand", "event", "place", "media_outlet"];
 
@@ -56,22 +75,22 @@ const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   media_outlet: { bg: "#f5f5f5", text: "#424242" },
 };
 
-export function EntitiesClient({ entities, suggestions, blocklist }: Props) {
+export function EntitiesClient({
+  entities,
+  suggestions,
+  suggestionTypeCounts,
+  blocklist,
+  pagination,
+  filters,
+  stats,
+}: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  // Filters
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-
-  // Sort
-  const [sortField, setSortField] = useState<SortField>("name");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-
-  // Pagination
-  const [page, setPage] = useState(1);
-  const perPage = 50;
+  // Local search input (debounced before pushing to URL)
+  const [searchInput, setSearchInput] = useState(filters.search);
 
   // Edit modal
   const [editingEntity, setEditingEntity] = useState<Entity | null>(null);
@@ -81,131 +100,99 @@ export function EntitiesClient({ entities, suggestions, blocklist }: Props) {
   const [bulkAction, setBulkAction] = useState<string>("");
   const [bulkType, setBulkType] = useState<string>("person");
 
-  // Filtered and sorted entities
-  const filteredEntities = useMemo(() => {
-    let result = [...entities];
+  // Import section
+  const [showImport, setShowImport] = useState(false);
+  const [importJson, setImportJson] = useState("");
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
-    // Search filter
-    if (search) {
-      const searchLower = search.toLowerCase();
-      result = result.filter(
-        (e) =>
-          e.name.toLowerCase().includes(searchLower) ||
-          e.aliases.some((a) => a.toLowerCase().includes(searchLower))
-      );
-    }
-
-    // Type filter
-    if (typeFilter !== "all") {
-      result = result.filter((e) => e.type === typeFilter);
-    }
-
-    // Status filter
-    if (statusFilter === "active") {
-      result = result.filter((e) => e.active);
-    } else if (statusFilter === "inactive") {
-      result = result.filter((e) => !e.active);
-    } else if (statusFilter === "hidden") {
-      result = result.filter((e) => !e.showInTrending);
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      let comparison = 0;
-      switch (sortField) {
-        case "name":
-          comparison = a.name.localeCompare(b.name);
-          break;
-        case "type":
-          comparison = a.type.localeCompare(b.type);
-          break;
-        case "linkCount":
-          comparison = a.linkCount - b.linkCount;
-          break;
-        case "velocityWeek":
-          comparison = a.velocityWeek - b.velocityWeek;
-          break;
-        case "createdAt":
-          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-          break;
+  // URL param helpers
+  const updateParam = useCallback(
+    (key: string, value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value === "" || value === "all") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
       }
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
+      if (key !== "page") params.set("page", "1");
+      startTransition(() => {
+        router.push(`${pathname}?${params.toString()}`);
+      });
+    },
+    [searchParams, pathname, router, startTransition]
+  );
 
-    return result;
-  }, [entities, search, typeFilter, statusFilter, sortField, sortDirection]);
+  const setPage = useCallback(
+    (page: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (page <= 1) {
+        params.delete("page");
+      } else {
+        params.set("page", String(page));
+      }
+      startTransition(() => {
+        router.push(`${pathname}?${params.toString()}`);
+      });
+    },
+    [searchParams, pathname, router, startTransition]
+  );
 
-  // Paginated entities
-  const paginatedEntities = useMemo(() => {
-    const start = (page - 1) * perPage;
-    return filteredEntities.slice(start, start + perPage);
-  }, [filteredEntities, page]);
+  // Debounce search input → URL
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (searchInput !== filters.search) {
+        updateParam("search", searchInput);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchInput, filters.search, updateParam]);
 
-  const totalPages = Math.ceil(filteredEntities.length / perPage);
+  // Sync search input when URL changes externally
+  useEffect(() => {
+    setSearchInput(filters.search);
+  }, [filters.search]);
 
-  // Reset page when filters change
-  const handleFilterChange = (setter: (val: string) => void, value: string) => {
-    setter(value);
-    setPage(1);
-  };
-
-  // Toggle sort
+  // Sort handler
   const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    const params = new URLSearchParams(searchParams.toString());
+    if (filters.sort === field) {
+      params.set("dir", filters.dir === "asc" ? "desc" : "asc");
     } else {
-      setSortField(field);
-      setSortDirection("asc");
+      params.set("sort", field);
+      params.set("dir", "asc");
     }
+    params.set("page", "1");
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
   };
 
   // Entity actions
   const handleToggle = async (id: string, field: "active" | "showInTrending", currentValue: boolean) => {
     const formData = new FormData();
     formData.set(field, (!currentValue).toString());
-
-    await fetch(`/api/admin/entities/${id}`, {
-      method: "POST",
-      body: formData,
-    });
-
-    startTransition(() => {
-      router.refresh();
-    });
+    await fetch(`/api/admin/entities/${id}`, { method: "POST", body: formData });
+    startTransition(() => router.refresh());
   };
 
-  const handleEdit = (entity: Entity) => {
-    setEditingEntity(entity);
-  };
+  const handleEdit = (entity: Entity) => setEditingEntity(entity);
 
   const handleSaveEdit = async (id: string, data: { name: string; type: string; aliases: string }) => {
     await fetch(`/api/admin/entities/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: data.name,
-        type: data.type,
-        aliases: data.aliases,
-      }),
+      body: JSON.stringify(data),
     });
-
     setEditingEntity(null);
-    startTransition(() => {
-      router.refresh();
-    });
+    startTransition(() => router.refresh());
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this entity? This cannot be undone.")) return;
-
-    await fetch(`/api/admin/entities/${id}`, {
-      method: "DELETE",
-    });
-
+    await fetch(`/api/admin/entities/${id}`, { method: "DELETE" });
     setEditingEntity(null);
-    startTransition(() => {
-      router.refresh();
-    });
+    startTransition(() => router.refresh());
   };
 
   // Blocklist handlers
@@ -215,74 +202,90 @@ export function EntitiesClient({ entities, suggestions, blocklist }: Props) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, reason }),
     });
-
-    startTransition(() => {
-      router.refresh();
-    });
+    startTransition(() => router.refresh());
   };
 
   const handleRemoveFromBlocklist = async (id: string) => {
-    await fetch(`/api/admin/entities/blocklist/${id}`, {
-      method: "DELETE",
-    });
-
-    startTransition(() => {
-      router.refresh();
-    });
+    await fetch(`/api/admin/entities/blocklist/${id}`, { method: "DELETE" });
+    startTransition(() => router.refresh());
   };
 
   // Bulk selection handlers
   const handleSelectAll = () => {
-    if (selectedIds.size === paginatedEntities.length) {
+    if (selectedIds.size === entities.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(paginatedEntities.map(e => e.id)));
+      setSelectedIds(new Set(entities.map((e) => e.id)));
     }
   };
 
   const handleSelectOne = (id: string) => {
     const newSelected = new Set(selectedIds);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
+    if (newSelected.has(id)) newSelected.delete(id);
+    else newSelected.add(id);
     setSelectedIds(newSelected);
   };
 
   const handleBulkAction = async () => {
     if (selectedIds.size === 0 || !bulkAction) return;
-
-    const entityIds = Array.from(selectedIds);
-
     const body: { entityIds: string[]; action: string; newType?: string } = {
-      entityIds,
+      entityIds: Array.from(selectedIds),
       action: bulkAction,
     };
-
-    if (bulkAction === "changeType") {
-      body.newType = bulkType;
-    }
-
+    if (bulkAction === "changeType") body.newType = bulkType;
     await fetch("/api/admin/entities/bulk", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-
     setSelectedIds(new Set());
     setBulkAction("");
-    startTransition(() => {
-      router.refresh();
-    });
+    startTransition(() => router.refresh());
   };
 
-  // Stats
-  const activeCount = entities.filter((e) => e.active).length;
-  const hiddenCount = entities.filter((e) => !e.showInTrending).length;
+  // Import handlers
+  const handleImportJson = async () => {
+    if (!importJson.trim()) return;
+    setIsImporting(true);
+    setImportResult(null);
+    try {
+      const parsed = JSON.parse(importJson);
+      const ents = Array.isArray(parsed) ? parsed : [parsed];
+      const res = await fetch("/api/admin/entities/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entities: ents, skipDuplicates: true }),
+      });
+      const result = await res.json();
+      setImportResult(result);
+      if (result.created > 0) {
+        setImportJson("");
+        startTransition(() => router.refresh());
+      }
+    } catch {
+      setImportResult({ created: 0, skipped: 0 });
+    }
+    setIsImporting(false);
+  };
 
-  // Get unique types from current data
+  const handlePresetImport = async (preset: string) => {
+    setIsImporting(true);
+    setImportResult(null);
+    const res = await fetch("/api/admin/entities/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ preset, skipDuplicates: true }),
+    });
+    const result = await res.json();
+    setImportResult(result);
+    setIsImporting(false);
+    if (result.created > 0) startTransition(() => router.refresh());
+  };
+
+  // Get unique types from current data for filter dropdown
   const existingTypes = [...new Set(entities.map((e) => e.type))];
+  // Merge with all known types for the dropdown
+  const allTypes = [...new Set([...ENTITY_TYPES, ...existingTypes])];
 
   return (
     <div className="min-h-dvh" style={{ background: "var(--surface-cream)" }}>
@@ -315,59 +318,63 @@ export function EntitiesClient({ entities, suggestions, blocklist }: Props) {
       {/* Stats Bar */}
       <div className="border-b px-6 py-3" style={{ borderColor: "var(--border)", background: "var(--ink)" }}>
         <div className="max-w-6xl mx-auto flex items-center gap-8">
-          <StatItem value={activeCount} label="Active" />
+          <StatItem value={stats.active} label="Active" />
           <Divider />
-          <StatItem value={entities.length} label="Total" />
+          <StatItem value={stats.total} label="Total" />
           <Divider />
-          <StatItem value={hiddenCount} label="Hidden" color="var(--status-warning)" />
-          {suggestions.length > 0 && (
+          <StatItem value={stats.hidden} label="Hidden" color="var(--status-warning)" />
+          {stats.pending > 0 && (
             <>
               <Divider />
-              <StatItem value={suggestions.length} label="Pending" color="var(--status-warning)" />
+              <StatItem value={stats.pending} label="Pending" color="var(--status-warning)" />
             </>
           )}
+          <div className="ml-auto text-sm" style={{ color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-mono)" }}>
+            {pagination.totalCount} matching
+          </div>
         </div>
       </div>
 
       <main className="max-w-6xl mx-auto px-6 py-8">
         {/* Pending Suggestions */}
-        {suggestions.length > 0 && (
-          <SuggestionsSection suggestions={suggestions} onRefresh={() => startTransition(() => router.refresh())} />
+        {(suggestions.length > 0 || Object.keys(suggestionTypeCounts).length > 0) && (
+          <SuggestionsSection
+            suggestions={suggestions}
+            typeCounts={suggestionTypeCounts}
+            onRefresh={() => startTransition(() => router.refresh())}
+          />
         )}
 
         {/* Filters */}
         <div className="flex flex-wrap gap-4 mb-6 items-center">
-          {/* Search */}
           <div className="flex-1 min-w-[200px] max-w-[300px]">
             <input
               type="text"
               placeholder="Search entities..."
-              value={search}
-              onChange={(e) => handleFilterChange(setSearch, e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="w-full px-3 py-2 text-sm"
               style={{ border: "1px solid var(--border)", background: "#fff" }}
             />
           </div>
 
-          {/* Type Filter */}
           <select
-            value={typeFilter}
-            onChange={(e) => handleFilterChange(setTypeFilter, e.target.value)}
+            value={filters.type}
+            onChange={(e) => updateParam("type", e.target.value)}
             className="px-3 py-2 text-sm"
             style={{ border: "1px solid var(--border)", background: "#fff" }}
           >
             <option value="all">All Types</option>
-            {existingTypes.map((type) => (
+            {allTypes.map((type) => (
               <option key={type} value={type}>
                 {type.replace("_", " ")}
               </option>
             ))}
           </select>
 
-          {/* Status Filter */}
           <select
-            value={statusFilter}
-            onChange={(e) => handleFilterChange(setStatusFilter, e.target.value)}
+            value={filters.status}
+            onChange={(e) => updateParam("status", e.target.value)}
             className="px-3 py-2 text-sm"
             style={{ border: "1px solid var(--border)", background: "#fff" }}
           >
@@ -377,14 +384,9 @@ export function EntitiesClient({ entities, suggestions, blocklist }: Props) {
             <option value="hidden">Hidden from Trending</option>
           </select>
 
-          {/* Results count */}
-          <div className="text-sm" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
-            {filteredEntities.length} of {entities.length}
-          </div>
-
           {isPending && (
             <div className="text-sm" style={{ color: "var(--status-warning)", fontFamily: "var(--font-mono)" }}>
-              Updating...
+              Loading...
             </div>
           )}
         </div>
@@ -421,9 +423,7 @@ export function EntitiesClient({ entities, suggestions, blocklist }: Props) {
                 style={{ border: "none", background: "rgba(255,255,255,0.2)", color: "#fff" }}
               >
                 {ENTITY_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t.replace("_", " ")}
-                  </option>
+                  <option key={t} value={t}>{t.replace("_", " ")}</option>
                 ))}
               </select>
             )}
@@ -443,12 +443,7 @@ export function EntitiesClient({ entities, suggestions, blocklist }: Props) {
             <button
               onClick={() => setSelectedIds(new Set())}
               className="px-3 py-1 text-sm"
-              style={{
-                fontFamily: "var(--font-mono)",
-                background: "transparent",
-                color: "#fff",
-                border: "1px solid rgba(255,255,255,0.3)",
-              }}
+              style={{ fontFamily: "var(--font-mono)", background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }}
             >
               Clear
             </button>
@@ -457,7 +452,6 @@ export function EntitiesClient({ entities, suggestions, blocklist }: Props) {
 
         {/* Entity Table */}
         <div className="bg-white border" style={{ borderColor: "var(--border)" }}>
-          {/* Table Header */}
           <div
             className="grid gap-4 px-4 py-3 text-xs uppercase tracking-wide border-b items-center"
             style={{
@@ -470,34 +464,33 @@ export function EntitiesClient({ entities, suggestions, blocklist }: Props) {
           >
             <input
               type="checkbox"
-              checked={paginatedEntities.length > 0 && selectedIds.size === paginatedEntities.length}
+              checked={entities.length > 0 && selectedIds.size === entities.length}
               onChange={handleSelectAll}
               className="w-4 h-4"
               title="Select all"
             />
-            <SortHeader field="name" current={sortField} direction={sortDirection} onClick={handleSort}>
+            <SortHeader field="name" current={filters.sort} direction={filters.dir} onClick={handleSort}>
               Name
             </SortHeader>
-            <SortHeader field="type" current={sortField} direction={sortDirection} onClick={handleSort}>
+            <SortHeader field="type" current={filters.sort} direction={filters.dir} onClick={handleSort}>
               Type
             </SortHeader>
-            <SortHeader field="linkCount" current={sortField} direction={sortDirection} onClick={handleSort}>
+            <SortHeader field="linkCount" current={filters.sort} direction={filters.dir} onClick={handleSort}>
               Links
             </SortHeader>
-            <SortHeader field="velocityWeek" current={sortField} direction={sortDirection} onClick={handleSort}>
+            <SortHeader field="velocityWeek" current={filters.sort} direction={filters.dir} onClick={handleSort}>
               Velocity
             </SortHeader>
             <div>Status</div>
             <div>Actions</div>
           </div>
 
-          {/* Table Body */}
-          {paginatedEntities.length === 0 ? (
+          {entities.length === 0 ? (
             <div className="px-4 py-8 text-center" style={{ color: "var(--muted)" }}>
               No entities match your filters.
             </div>
           ) : (
-            paginatedEntities.map((entity) => (
+            entities.map((entity) => (
               <EntityRow
                 key={entity.id}
                 entity={entity}
@@ -511,22 +504,22 @@ export function EntitiesClient({ entities, suggestions, blocklist }: Props) {
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {pagination.totalPages > 1 && (
           <div className="flex items-center justify-center gap-2 mt-4">
             <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
+              onClick={() => setPage(pagination.currentPage - 1)}
+              disabled={pagination.currentPage === 1}
               className="px-3 py-1 text-sm disabled:opacity-40"
               style={{ border: "1px solid var(--border)", background: "#fff" }}
             >
               Previous
             </button>
             <span className="text-sm" style={{ fontFamily: "var(--font-mono)", color: "var(--muted)" }}>
-              Page {page} of {totalPages}
+              Page {pagination.currentPage} of {pagination.totalPages}
             </span>
             <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
+              onClick={() => setPage(pagination.currentPage + 1)}
+              disabled={pagination.currentPage === pagination.totalPages}
               className="px-3 py-1 text-sm disabled:opacity-40"
               style={{ border: "1px solid var(--border)", background: "#fff" }}
             >
@@ -537,6 +530,18 @@ export function EntitiesClient({ entities, suggestions, blocklist }: Props) {
 
         {/* Add Entity Form */}
         <AddEntityForm existingTypes={ENTITY_TYPES} onSuccess={() => startTransition(() => router.refresh())} />
+
+        {/* Import Section */}
+        <ImportSection
+          showImport={showImport}
+          setShowImport={setShowImport}
+          importJson={importJson}
+          setImportJson={setImportJson}
+          importResult={importResult}
+          isImporting={isImporting}
+          onImportJson={handleImportJson}
+          onPresetImport={handlePresetImport}
+        />
 
         {/* Blocklist Section */}
         <BlocklistSection
@@ -559,6 +564,8 @@ export function EntitiesClient({ entities, suggestions, blocklist }: Props) {
     </div>
   );
 }
+
+/* ── Subcomponents ─────────────────────────────────────────────── */
 
 function StatItem({ value, label, color }: { value: number; label: string; color?: string }) {
   return (
@@ -588,8 +595,8 @@ function SortHeader({
   children,
 }: {
   field: SortField;
-  current: SortField;
-  direction: SortDirection;
+  current: string;
+  direction: string;
   onClick: (field: SortField) => void;
   children: React.ReactNode;
 }) {
@@ -631,14 +638,12 @@ function EntityRow({
         background: selected ? "rgba(0, 100, 200, 0.05)" : "transparent",
       }}
     >
-      {/* Checkbox */}
       <input
         type="checkbox"
         checked={selected}
         onChange={() => onSelect(entity.id)}
         className="w-4 h-4"
       />
-      {/* Name + Aliases */}
       <div>
         <div style={{ color: "var(--ink)", fontWeight: 500 }}>{entity.name}</div>
         {entity.aliases.length > 0 && (
@@ -647,32 +652,20 @@ function EntityRow({
           </div>
         )}
       </div>
-
-      {/* Type Badge */}
       <div>
         <span
           className="text-xs px-2 py-1 inline-block"
-          style={{
-            fontFamily: "var(--font-mono)",
-            background: typeColor.bg,
-            color: typeColor.text,
-          }}
+          style={{ fontFamily: "var(--font-mono)", background: typeColor.bg, color: typeColor.text }}
         >
           {entity.type.replace("_", " ")}
         </span>
       </div>
-
-      {/* Links */}
       <div className="text-sm tabular-nums" style={{ fontFamily: "var(--font-mono)", color: "var(--muted)" }}>
         {entity.linkCount}
       </div>
-
-      {/* Velocity */}
       <div className="text-sm tabular-nums" style={{ fontFamily: "var(--font-mono)", color: entity.velocityWeek > 0 ? "var(--status-success)" : "var(--muted)" }}>
         {entity.velocityWeek}
       </div>
-
-      {/* Status */}
       <div className="flex items-center gap-2">
         {!entity.active && (
           <span className="text-xs px-1.5 py-0.5" style={{ background: "var(--status-error)", color: "#fff", fontFamily: "var(--font-mono)" }}>
@@ -688,17 +681,11 @@ function EntityRow({
           <span className="text-xs" style={{ color: "var(--muted)" }}>—</span>
         )}
       </div>
-
-      {/* Actions */}
       <div className="flex items-center gap-1">
         <button
           onClick={() => onEdit(entity)}
           className="text-xs px-2 py-1 transition-opacity hover:opacity-70"
-          style={{
-            fontFamily: "var(--font-mono)",
-            border: "1px solid var(--border)",
-            background: "#fff",
-          }}
+          style={{ fontFamily: "var(--font-mono)", border: "1px solid var(--border)", background: "#fff" }}
           title="Edit entity"
         >
           Edit
@@ -734,24 +721,38 @@ function EntityRow({
 
 function SuggestionsSection({
   suggestions,
+  typeCounts,
   onRefresh,
 }: {
   suggestions: Suggestion[];
+  typeCounts: Record<string, number>;
   onRefresh: () => void;
 }) {
+  const [isProcessing, setIsProcessing] = useState<string | null>(null);
+
   const handleAction = async (name: string, type: string, action: "approve" | "reject") => {
+    setIsProcessing(`${name}-${type}-${action}`);
     const formData = new FormData();
     formData.set("action", action);
     formData.set("name", name);
     formData.set("type", type);
-
-    await fetch("/api/admin/entities/suggestions/bulk", {
-      method: "POST",
-      body: formData,
-    });
-
+    await fetch("/api/admin/entities/suggestions/bulk", { method: "POST", body: formData });
+    setIsProcessing(null);
     onRefresh();
   };
+
+  const handleBulkTypeAction = async (type: string, action: "approve" | "reject") => {
+    setIsProcessing(`bulk-${type}-${action}`);
+    await fetch("/api/admin/entities/suggestions/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, bulkType: type }),
+    });
+    setIsProcessing(null);
+    onRefresh();
+  };
+
+  const totalPending = Object.values(typeCounts).reduce((a, b) => a + b, 0);
 
   return (
     <div
@@ -762,8 +763,48 @@ function SuggestionsSection({
         className="text-xs uppercase tracking-wide mb-4"
         style={{ color: "var(--status-warning)", fontFamily: "var(--font-mono)" }}
       >
-        Pending Suggestions ({suggestions.length})
+        Pending Suggestions ({totalPending})
       </h3>
+
+      {/* Type-based bulk actions */}
+      {Object.keys(typeCounts).length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4 pb-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          {Object.entries(typeCounts)
+            .sort(([, a], [, b]) => b - a)
+            .map(([type, count]) => (
+              <div
+                key={type}
+                className="flex items-center gap-2 px-3 py-2"
+                style={{ background: "#fff", border: "1px solid var(--border)" }}
+              >
+                <span className="text-sm" style={{ fontFamily: "var(--font-mono)" }}>
+                  {type.replace("_", " ")}
+                </span>
+                <span className="text-xs font-medium" style={{ fontFamily: "var(--font-mono)", color: "var(--status-warning)" }}>
+                  {count}
+                </span>
+                <button
+                  onClick={() => handleBulkTypeAction(type, "approve")}
+                  disabled={isProcessing !== null}
+                  className="text-xs px-2 py-0.5 transition-opacity hover:opacity-80 disabled:opacity-50"
+                  style={{ fontFamily: "var(--font-mono)", background: "var(--status-success)", color: "#fff", border: "none" }}
+                >
+                  {isProcessing === `bulk-${type}-approve` ? "..." : "Approve All"}
+                </button>
+                <button
+                  onClick={() => handleBulkTypeAction(type, "reject")}
+                  disabled={isProcessing !== null}
+                  className="text-xs px-2 py-0.5 transition-opacity hover:opacity-80 disabled:opacity-50"
+                  style={{ fontFamily: "var(--font-mono)", background: "var(--status-error)", color: "#fff", border: "none" }}
+                >
+                  {isProcessing === `bulk-${type}-reject` ? "..." : "Reject All"}
+                </button>
+              </div>
+            ))}
+        </div>
+      )}
+
+      {/* Individual suggestions */}
       <div className="space-y-2">
         {suggestions.map((suggestion) => (
           <div
@@ -775,19 +816,12 @@ function SuggestionsSection({
               <span style={{ color: "var(--ink)", fontWeight: 500 }}>{suggestion.name}</span>
               <span
                 className="text-xs px-2 py-0.5"
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  background: "var(--surface-cream)",
-                  color: "var(--muted)",
-                }}
+                style={{ fontFamily: "var(--font-mono)", background: "var(--surface-cream)", color: "var(--muted)" }}
               >
                 {suggestion.type}
               </span>
               {suggestion.count > 1 && (
-                <span
-                  className="text-xs font-medium"
-                  style={{ fontFamily: "var(--font-mono)", color: "var(--status-warning)" }}
-                >
+                <span className="text-xs font-medium" style={{ fontFamily: "var(--font-mono)", color: "var(--status-warning)" }}>
                   ×{suggestion.count}
                 </span>
               )}
@@ -795,25 +829,17 @@ function SuggestionsSection({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => handleAction(suggestion.name, suggestion.type, "approve")}
-                className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  background: "var(--status-success)",
-                  color: "#fff",
-                  border: "none",
-                }}
+                disabled={isProcessing !== null}
+                className="text-xs px-3 py-1 transition-opacity hover:opacity-80 disabled:opacity-50"
+                style={{ fontFamily: "var(--font-mono)", background: "var(--status-success)", color: "#fff", border: "none" }}
               >
                 Approve
               </button>
               <button
                 onClick={() => handleAction(suggestion.name, suggestion.type, "reject")}
-                className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  background: "var(--status-error)",
-                  color: "#fff",
-                  border: "none",
-                }}
+                disabled={isProcessing !== null}
+                className="text-xs px-3 py-1 transition-opacity hover:opacity-80 disabled:opacity-50"
+                style={{ fontFamily: "var(--font-mono)", background: "var(--status-error)", color: "#fff", border: "none" }}
               >
                 Reject
               </button>
@@ -840,17 +866,11 @@ function AddEntityForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-
     const formData = new FormData();
     formData.set("name", name);
     formData.set("type", type);
     formData.set("aliases", aliases);
-
-    await fetch("/api/admin/entities", {
-      method: "POST",
-      body: formData,
-    });
-
+    await fetch("/api/admin/entities", { method: "POST", body: formData });
     setName("");
     setAliases("");
     setIsSubmitting(false);
@@ -859,86 +879,152 @@ function AddEntityForm({
 
   return (
     <div className="mt-12 p-6" style={{ background: "#fff", border: "1px solid var(--border)" }}>
-      <h3
-        className="text-xs uppercase tracking-wide mb-6"
-        style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-      >
+      <h3 className="text-xs uppercase tracking-wide mb-6" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
         Add Entity
       </h3>
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
-            <label
-              htmlFor="name"
-              className="block text-xs uppercase tracking-wide mb-2"
-              style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-            >
+            <label htmlFor="name" className="block text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
               Name
             </label>
-            <input
-              type="text"
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              placeholder="Elon Musk"
-              className="w-full px-3 py-2 text-sm"
-              style={{ border: "1px solid var(--border)", background: "var(--surface-cream)" }}
-            />
+            <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Elon Musk"
+              className="w-full px-3 py-2 text-sm" style={{ border: "1px solid var(--border)", background: "var(--surface-cream)" }} />
           </div>
           <div>
-            <label
-              htmlFor="type"
-              className="block text-xs uppercase tracking-wide mb-2"
-              style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-            >
+            <label htmlFor="type" className="block text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
               Type
             </label>
-            <select
-              id="type"
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              required
-              className="w-full px-3 py-2 text-sm"
-              style={{ border: "1px solid var(--border)", background: "var(--surface-cream)" }}
-            >
+            <select id="type" value={type} onChange={(e) => setType(e.target.value)} required
+              className="w-full px-3 py-2 text-sm" style={{ border: "1px solid var(--border)", background: "var(--surface-cream)" }}>
               {existingTypes.map((t) => (
-                <option key={t} value={t}>
-                  {t.replace("_", " ")}
-                </option>
+                <option key={t} value={t}>{t.replace("_", " ")}</option>
               ))}
             </select>
           </div>
           <div>
-            <label
-              htmlFor="aliases"
-              className="block text-xs uppercase tracking-wide mb-2"
-              style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-            >
+            <label htmlFor="aliases" className="block text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
               Aliases
             </label>
-            <input
-              type="text"
-              id="aliases"
-              value={aliases}
-              onChange={(e) => setAliases(e.target.value)}
-              placeholder="@elonmusk, Tesla CEO"
-              className="w-full px-3 py-2 text-sm"
-              style={{ border: "1px solid var(--border)", background: "var(--surface-cream)" }}
-            />
+            <input type="text" id="aliases" value={aliases} onChange={(e) => setAliases(e.target.value)} placeholder="@elonmusk, Tesla CEO"
+              className="w-full px-3 py-2 text-sm" style={{ border: "1px solid var(--border)", background: "var(--surface-cream)" }} />
           </div>
         </div>
         <div className="mt-6">
-          <button
-            type="submit"
-            disabled={isSubmitting}
+          <button type="submit" disabled={isSubmitting}
             className="px-4 py-2 text-sm transition-opacity hover:opacity-80 disabled:opacity-50"
-            style={{ background: "var(--ink)", color: "#fff", border: "none" }}
-          >
+            style={{ background: "var(--ink)", color: "#fff", border: "none" }}>
             {isSubmitting ? "Adding..." : "Add Entity"}
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function ImportSection({
+  showImport,
+  setShowImport,
+  importJson,
+  setImportJson,
+  importResult,
+  isImporting,
+  onImportJson,
+  onPresetImport,
+}: {
+  showImport: boolean;
+  setShowImport: (v: boolean) => void;
+  importJson: string;
+  setImportJson: (v: string) => void;
+  importResult: { created: number; skipped: number } | null;
+  isImporting: boolean;
+  onImportJson: () => void;
+  onPresetImport: (preset: string) => void;
+}) {
+  return (
+    <div className="mt-12 p-6" style={{ background: "#fff", border: "1px solid var(--border)" }}>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xs uppercase tracking-wide" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+          Batch Import
+        </h3>
+        <button
+          onClick={() => setShowImport(!showImport)}
+          className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
+          style={{ fontFamily: "var(--font-mono)", border: "1px solid var(--border)", background: showImport ? "var(--surface-cream)" : "#fff" }}
+        >
+          {showImport ? "Close" : "Open"}
+        </button>
+      </div>
+
+      {showImport && (
+        <div className="space-y-6">
+          {/* Preset Imports */}
+          <div>
+            <div className="text-xs uppercase tracking-wide mb-3" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+              Sports Teams
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {[
+                { preset: "nfl", label: "NFL Teams", count: 32 },
+                { preset: "nba", label: "NBA Teams", count: 30 },
+                { preset: "mlb", label: "MLB Teams", count: 30 },
+              ].map(({ preset, label, count }) => (
+                <button
+                  key={preset}
+                  onClick={() => onPresetImport(preset)}
+                  disabled={isImporting}
+                  className="px-4 py-2 text-sm transition-opacity hover:opacity-80 disabled:opacity-50"
+                  style={{ border: "1px solid var(--border)", background: "var(--surface-cream)", fontFamily: "var(--font-mono)" }}
+                >
+                  {isImporting ? "Importing..." : `Import ${label} (${count})`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* JSON Import */}
+          <div>
+            <div className="text-xs uppercase tracking-wide mb-3" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+              Custom JSON Import
+            </div>
+            <textarea
+              value={importJson}
+              onChange={(e) => setImportJson(e.target.value)}
+              placeholder={`[{"name": "Example Corp", "type": "organization", "aliases": ["Example", "EC"]}]`}
+              rows={5}
+              className="w-full px-3 py-2 text-sm"
+              style={{ border: "1px solid var(--border)", background: "var(--surface-cream)", fontFamily: "var(--font-mono)", resize: "vertical" }}
+            />
+            <button
+              onClick={onImportJson}
+              disabled={isImporting || !importJson.trim()}
+              className="mt-3 px-4 py-2 text-sm transition-opacity hover:opacity-80 disabled:opacity-50"
+              style={{ background: "var(--ink)", color: "#fff", border: "none" }}
+            >
+              {isImporting ? "Importing..." : "Import JSON"}
+            </button>
+          </div>
+
+          {/* Result */}
+          {importResult && (
+            <div
+              className="p-3 text-sm"
+              style={{
+                fontFamily: "var(--font-mono)",
+                background: importResult.created > 0 ? "rgba(74, 103, 65, 0.1)" : "rgba(148, 68, 68, 0.1)",
+                border: `1px solid ${importResult.created > 0 ? "var(--status-success)" : "var(--status-error)"}`,
+                color: importResult.created > 0 ? "var(--status-success)" : "var(--status-error)",
+              }}
+            >
+              {importResult.created > 0
+                ? `Created ${importResult.created} entities${importResult.skipped > 0 ? `, ${importResult.skipped} skipped (duplicates)` : ""}`
+                : importResult.skipped > 0
+                  ? `All ${importResult.skipped} entities already exist`
+                  : "Import failed — check JSON format"}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -981,118 +1067,56 @@ function EditEntityModal({
       style={{ background: "rgba(0, 0, 0, 0.5)" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div
-        className="w-full max-w-md p-6"
-        style={{ background: "#fff", border: "1px solid var(--border)" }}
-      >
+      <div className="w-full max-w-md p-6" style={{ background: "#fff", border: "1px solid var(--border)" }}>
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-medium" style={{ color: "var(--ink)" }}>
-            Edit Entity
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-xl hover:opacity-70"
-            style={{ background: "none", border: "none", color: "var(--muted)" }}
-          >
+          <h2 className="text-lg font-medium" style={{ color: "var(--ink)" }}>Edit Entity</h2>
+          <button onClick={onClose} className="text-xl hover:opacity-70" style={{ background: "none", border: "none", color: "var(--muted)" }}>
             &times;
           </button>
         </div>
-
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label
-                htmlFor="edit-name"
-                className="block text-xs uppercase tracking-wide mb-2"
-                style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-              >
+              <label htmlFor="edit-name" className="block text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
                 Name
               </label>
-              <input
-                type="text"
-                id="edit-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="w-full px-3 py-2 text-sm"
-                style={{ border: "1px solid var(--border)", background: "var(--surface-cream)" }}
-              />
+              <input type="text" id="edit-name" value={name} onChange={(e) => setName(e.target.value)} required
+                className="w-full px-3 py-2 text-sm" style={{ border: "1px solid var(--border)", background: "var(--surface-cream)" }} />
             </div>
-
             <div>
-              <label
-                htmlFor="edit-type"
-                className="block text-xs uppercase tracking-wide mb-2"
-                style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-              >
+              <label htmlFor="edit-type" className="block text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
                 Type
               </label>
-              <select
-                id="edit-type"
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                required
-                className="w-full px-3 py-2 text-sm"
-                style={{ border: "1px solid var(--border)", background: "var(--surface-cream)" }}
-              >
+              <select id="edit-type" value={type} onChange={(e) => setType(e.target.value)} required
+                className="w-full px-3 py-2 text-sm" style={{ border: "1px solid var(--border)", background: "var(--surface-cream)" }}>
                 {entityTypes.map((t) => (
-                  <option key={t} value={t}>
-                    {t.replace("_", " ")}
-                  </option>
+                  <option key={t} value={t}>{t.replace("_", " ")}</option>
                 ))}
               </select>
             </div>
-
             <div>
-              <label
-                htmlFor="edit-aliases"
-                className="block text-xs uppercase tracking-wide mb-2"
-                style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-              >
+              <label htmlFor="edit-aliases" className="block text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
                 Aliases (comma-separated)
               </label>
-              <input
-                type="text"
-                id="edit-aliases"
-                value={aliases}
-                onChange={(e) => setAliases(e.target.value)}
-                placeholder="@username, Other Name"
-                className="w-full px-3 py-2 text-sm"
-                style={{ border: "1px solid var(--border)", background: "var(--surface-cream)" }}
-              />
+              <input type="text" id="edit-aliases" value={aliases} onChange={(e) => setAliases(e.target.value)} placeholder="@username, Other Name"
+                className="w-full px-3 py-2 text-sm" style={{ border: "1px solid var(--border)", background: "var(--surface-cream)" }} />
             </div>
           </div>
-
           <div className="flex items-center justify-between mt-6">
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={isDeleting}
+            <button type="button" onClick={handleDelete} disabled={isDeleting}
               className="text-xs px-3 py-2 transition-opacity hover:opacity-80 disabled:opacity-50"
-              style={{
-                fontFamily: "var(--font-mono)",
-                background: "var(--status-error)",
-                color: "#fff",
-                border: "none",
-              }}
-            >
+              style={{ fontFamily: "var(--font-mono)", background: "var(--status-error)", color: "#fff", border: "none" }}>
               {isDeleting ? "Deleting..." : "Delete"}
             </button>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
+              <button type="button" onClick={onClose}
                 className="px-4 py-2 text-sm transition-opacity hover:opacity-80"
-                style={{ border: "1px solid var(--border)", background: "#fff" }}
-              >
+                style={{ border: "1px solid var(--border)", background: "#fff" }}>
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={isSaving}
+              <button type="submit" disabled={isSaving}
                 className="px-4 py-2 text-sm transition-opacity hover:opacity-80 disabled:opacity-50"
-                style={{ background: "var(--ink)", color: "#fff", border: "none" }}
-              >
+                style={{ background: "var(--ink)", color: "#fff", border: "none" }}>
                 {isSaving ? "Saving..." : "Save"}
               </button>
             </div>
@@ -1120,7 +1144,6 @@ function BlocklistSection({
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-
     setIsAdding(true);
     await onAdd(newName.trim(), newReason.trim() || undefined);
     setNewName("");
@@ -1132,20 +1155,13 @@ function BlocklistSection({
   return (
     <div className="mt-12 p-6" style={{ background: "#fff", border: "1px solid var(--border)" }}>
       <div className="flex items-center justify-between mb-6">
-        <h3
-          className="text-xs uppercase tracking-wide"
-          style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-        >
+        <h3 className="text-xs uppercase tracking-wide" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
           Entity Blocklist ({blocklist.length})
         </h3>
         <button
           onClick={() => setShowForm(!showForm)}
           className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
-          style={{
-            fontFamily: "var(--font-mono)",
-            border: "1px solid var(--border)",
-            background: showForm ? "var(--surface-cream)" : "#fff",
-          }}
+          style={{ fontFamily: "var(--font-mono)", border: "1px solid var(--border)", background: showForm ? "var(--surface-cream)" : "#fff" }}
         >
           {showForm ? "Cancel" : "Add"}
         </button>
@@ -1155,49 +1171,23 @@ function BlocklistSection({
         <form onSubmit={handleAdd} className="mb-6 p-4" style={{ background: "var(--surface-cream)" }}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label
-                htmlFor="blocklist-name"
-                className="block text-xs uppercase tracking-wide mb-2"
-                style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-              >
+              <label htmlFor="blocklist-name" className="block text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
                 Name to Block
               </label>
-              <input
-                type="text"
-                id="blocklist-name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                required
-                placeholder="AI, The, etc."
-                className="w-full px-3 py-2 text-sm"
-                style={{ border: "1px solid var(--border)", background: "#fff" }}
-              />
+              <input type="text" id="blocklist-name" value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="AI, The, etc."
+                className="w-full px-3 py-2 text-sm" style={{ border: "1px solid var(--border)", background: "#fff" }} />
             </div>
             <div>
-              <label
-                htmlFor="blocklist-reason"
-                className="block text-xs uppercase tracking-wide mb-2"
-                style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-              >
+              <label htmlFor="blocklist-reason" className="block text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
                 Reason (optional)
               </label>
-              <input
-                type="text"
-                id="blocklist-reason"
-                value={newReason}
-                onChange={(e) => setNewReason(e.target.value)}
-                placeholder="Too generic, always trending, etc."
-                className="w-full px-3 py-2 text-sm"
-                style={{ border: "1px solid var(--border)", background: "#fff" }}
-              />
+              <input type="text" id="blocklist-reason" value={newReason} onChange={(e) => setNewReason(e.target.value)} placeholder="Too generic, always trending, etc."
+                className="w-full px-3 py-2 text-sm" style={{ border: "1px solid var(--border)", background: "#fff" }} />
             </div>
           </div>
-          <button
-            type="submit"
-            disabled={isAdding || !newName.trim()}
+          <button type="submit" disabled={isAdding || !newName.trim()}
             className="mt-4 px-4 py-2 text-sm transition-opacity hover:opacity-80 disabled:opacity-50"
-            style={{ background: "var(--ink)", color: "#fff", border: "none" }}
-          >
+            style={{ background: "var(--ink)", color: "#fff", border: "none" }}>
             {isAdding ? "Adding..." : "Add to Blocklist"}
           </button>
         </form>
@@ -1210,25 +1200,14 @@ function BlocklistSection({
       ) : (
         <div className="flex flex-wrap gap-2">
           {blocklist.map((entry) => (
-            <div
-              key={entry.id}
-              className="flex items-center gap-2 px-3 py-2"
-              style={{ background: "var(--surface-cream)", border: "1px solid var(--border)" }}
-            >
-              <span className="text-sm" style={{ color: "var(--ink)" }}>
-                {entry.name}
-              </span>
+            <div key={entry.id} className="flex items-center gap-2 px-3 py-2"
+              style={{ background: "var(--surface-cream)", border: "1px solid var(--border)" }}>
+              <span className="text-sm" style={{ color: "var(--ink)" }}>{entry.name}</span>
               {entry.reason && (
-                <span className="text-xs" style={{ color: "var(--muted)" }}>
-                  ({entry.reason})
-                </span>
+                <span className="text-xs" style={{ color: "var(--muted)" }}>({entry.reason})</span>
               )}
-              <button
-                onClick={() => onRemove(entry.id)}
-                className="text-xs ml-1 hover:opacity-70"
-                style={{ color: "var(--status-error)", background: "none", border: "none" }}
-                title="Remove from blocklist"
-              >
+              <button onClick={() => onRemove(entry.id)} className="text-xs ml-1 hover:opacity-70"
+                style={{ color: "var(--status-error)", background: "none", border: "none" }} title="Remove from blocklist">
                 &times;
               </button>
             </div>
