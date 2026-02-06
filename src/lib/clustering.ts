@@ -210,6 +210,7 @@ export async function runClustering(): Promise<{
         data: {
           firstLinkAt: { set: firstLinkAt },
           lastLinkAt,
+          narrative: null, // Reset so it regenerates with new links
         },
       });
     } else {

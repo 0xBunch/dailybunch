@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 
 interface StoryLink {
@@ -14,6 +14,7 @@ interface StoryLink {
 interface Story {
   id: string;
   title: string;
+  narrative?: string | null;
   linkCount: number;
   combinedVelocity: number;
   domains: string[];
@@ -52,6 +53,8 @@ interface DashboardClientProps {
 
 type VelocityFilter = "all" | "v2+" | "v5+";
 
+const BATCH_SIZE = 25;
+
 const velocityLabels: Record<VelocityFilter, string> = {
   all: "All",
   "v2+": "2+",
@@ -63,6 +66,13 @@ export function DashboardClient({ stories, links, categories, entities }: Dashbo
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [entityFilter, setEntityFilter] = useState<string | null>(null);
   const [expandedStories, setExpandedStories] = useState<Set<string>>(new Set());
+  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(BATCH_SIZE);
+  }, [velocityFilter, categoryFilter, entityFilter]);
 
   const filteredStories = useMemo(() => {
     return stories.filter((story) => {
@@ -82,6 +92,27 @@ export function DashboardClient({ stories, links, categories, entities }: Dashbo
       return true;
     });
   }, [links, velocityFilter, categoryFilter, entityFilter]);
+
+  const visibleLinks = filteredLinks.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredLinks.length;
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, filteredLinks.length));
+        }
+      },
+      { rootMargin: "200px" }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, filteredLinks.length]);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -259,6 +290,14 @@ export function DashboardClient({ stories, links, categories, entities }: Dashbo
                       </div>
                       <div className="story-content">
                         <h3 className="story-title">{story.title}</h3>
+                        {story.narrative && (
+                          <p
+                            className="text-sm leading-relaxed mt-1 mb-0"
+                            style={{ color: "var(--text-secondary)", fontFamily: "var(--font-body)" }}
+                          >
+                            {story.narrative}
+                          </p>
+                        )}
                         <div className="story-subtitle">
                           {story.linkCount} articles
                         </div>
@@ -297,9 +336,17 @@ export function DashboardClient({ stories, links, categories, entities }: Dashbo
         {/* Links */}
         {filteredLinks.length > 0 && (
           <section>
-            <h2 className="section-header">Latest</h2>
+            <h2 className="section-header">
+              Latest
+              <span
+                className="ml-3 text-xs tabular-nums"
+                style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)", fontWeight: 400 }}
+              >
+                {visibleLinks.length} / {filteredLinks.length}
+              </span>
+            </h2>
             <div>
-              {filteredLinks.map((link) => {
+              {visibleLinks.map((link) => {
                 const isHot = link.velocity >= 5;
                 return (
                   <article key={link.id} className="feed-item link-item" data-hot={isHot}>
@@ -324,6 +371,17 @@ export function DashboardClient({ stories, links, categories, entities }: Dashbo
                   </article>
                 );
               })}
+
+              {hasMore && (
+                <div ref={sentinelRef} className="py-8 text-center">
+                  <span
+                    className="text-xs"
+                    style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}
+                  >
+                    Loading more...
+                  </span>
+                </div>
+              )}
             </div>
           </section>
         )}

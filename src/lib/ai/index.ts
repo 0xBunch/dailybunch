@@ -31,6 +31,12 @@ export {
   regenerateCommentary,
 } from "./commentary";
 
+// Story narratives
+export {
+  generateStoryNarrative,
+  generateMissingNarratives,
+} from "./narrative";
+
 // Digest generation
 export {
   gatherDigestContext,

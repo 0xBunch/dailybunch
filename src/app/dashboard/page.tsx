@@ -137,6 +137,7 @@ export default async function DashboardPage() {
       return {
         id: story.id,
         title: cleanedTitle,
+        narrative: story.narrative || null,
         linkCount: storyLinks.length,
         combinedVelocity,
         domains: [...new Set(storyLinks.map(l => l.domain))],
