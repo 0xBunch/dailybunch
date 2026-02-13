@@ -1,0 +1,2487 @@
+-- Daily Bunch
+-- Cultural signal intelligence platform that surfaces what's travelling
+-- across the curated web. Broadens inputs (social, podcasts), deepens
+-- intelligence (entity graph, narrative arcs, cross-signal synthesis),
+-- and sharpens delivery (alerts, briefings, channels).
+--
+-- Product decisions:
+--   - Market signals tabled entirely
+--   - Podcast signals: titles/descriptions only (no transcription)
+--   - Social account discovery: manual only
+--   - Entity relationships: human approval required
+--   - Alerts: diminishing priority for repeated patterns
+--   - Signal dedup: each platform as individual source, linked via entities
+--   - Briefings: admin-configurable templates (no personalisation)
+--   - Digest sending: removed (curation only)
+--   - Arc beat types: fixed enum
+--   - No open questions remain
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+external entity Email {
+    to: List<String>
+    subject: String
+    template: String
+    data: Map
+}
+
+external entity SlackMessage {
+    webhook_url: URL
+    channel: String?
+    text: String
+}
+
+external entity WebhookCall {
+    url: URL
+    secret: String?
+    payload: Map
+}
+
+------------------------------------------------------------
+-- Value Types
+------------------------------------------------------------
+
+value TimeRange {
+    start: Timestamp
+    end: Timestamp
+    duration: end - start
+}
+
+value TimeWindow {
+    start: Timestamp
+    end: Timestamp
+    duration: end - start
+}
+
+value VelocityScore {
+    raw: Integer                                -- distinct source count
+    weighted: Decimal                           -- trust * tier * time decay
+    time_weighted: Decimal                      -- per-source max recency
+}
+
+value TrendMetrics {
+    velocity_week: Integer
+    velocity_month: Integer
+    trend: rising | stable | falling | null
+}
+
+value Confidence {
+    score: Decimal                              -- 0.0-1.0
+    reasoning: String
+}
+
+value SocialEngagement {
+    likes: Integer
+    reposts: Integer
+    replies: Integer
+    quotes: Integer
+    views: Integer?
+
+    -- Derived
+    total: likes + reposts + replies + quotes
+    engagement_rate: if views != null and views > 0: total / views else: null
+}
+
+------------------------------------------------------------
+-- Entities: Taxonomy
+------------------------------------------------------------
+
+entity Category {
+    name: String                                -- SPORTS, CULTURE, BUSINESS, AI
+    slug: String
+
+    subcategories: Subcategory for this category
+    links: Link for this category
+    sources: Source for this category
+}
+
+entity Subcategory {
+    name: String
+    slug: String
+    category: Category
+
+    links: Link for this subcategory
+}
+
+------------------------------------------------------------
+-- Entities: Sources
+------------------------------------------------------------
+
+entity Source {
+    name: String                                -- "Morning Brew", "Stratechery"
+    type: rss | newsletter
+    url: URL?
+    email_trigger: String?                      -- domain to match incoming emails
+    category: Category?
+    active: Boolean
+    poll_frequency: realtime | hourly | daily
+    last_fetched_at: Timestamp?
+
+    -- Trust & Quality
+    trust_score: Integer                        -- 1-10 scale
+    tier: tier_1 | tier_2 | tier_3 | tier_4
+
+    -- Error tracking
+    last_error: String?
+    last_error_at: Timestamp?
+    consecutive_errors: Integer
+
+    -- Auto-deactivation
+    deactivated_at: Timestamp?
+    deactivation_reason: String?                -- "consecutive_errors_exceeded" etc.
+
+    -- Link behaviour
+    include_own_links: Boolean                  -- false = only external links
+    show_on_dashboard: Boolean                  -- false = hide from trending
+    base_domain: String?
+    internal_domains: List<String>
+
+    -- Relationships
+    mentions: Mention for this source
+    source_items: SourceItem for this source
+
+    -- Derived
+    is_healthy: consecutive_errors < config.source_max_consecutive_errors
+    is_auto_deactivated: deactivated_at != null
+    is_due_for_poll:
+        active
+        and not is_auto_deactivated
+        and (last_fetched_at = null
+            or (poll_frequency = realtime and last_fetched_at + 15.minutes <= now)
+            or (poll_frequency = hourly and last_fetched_at + 1.hour <= now)
+            or (poll_frequency = daily and last_fetched_at + 24.hours <= now))
+}
+
+entity SourceItem {
+    source: Source
+    title: String
+    url: URL
+    pub_date: Timestamp?
+    description: String?
+    image_url: URL?
+    link_count: Integer                         -- external links found in content
+    created_at: Timestamp
+}
+
+------------------------------------------------------------
+-- Entities: Links & Mentions
+------------------------------------------------------------
+
+entity Link {
+    canonical_url: URL
+    original_url: URL?
+    domain: String
+    title: String?
+    description: String?
+    image_url: URL?
+    author: String?
+    published_at: Timestamp?
+
+    -- Content type
+    media_type: article | video | podcast | newsletter | thread | null
+
+    -- AI enrichment (Layer 1: basic)
+    ai_summary: String?
+    ai_analyzed_at: Timestamp?
+
+    -- AI enrichment (Layer 2: cultural analysis — configurable threshold)
+    cultural_why_now: String?
+    cultural_tension: String?
+    cultural_thread: String?
+    cultural_prediction: growing | peaking | fading | null
+    cultural_contrarian: String?
+    cultural_analyzed_at: Timestamp?
+
+    -- AI commentary
+    commentary: String?
+    commentary_persona: connector | historian | skeptic | scout | null
+
+    -- Embedding (for clustering)
+    embedding: String?                          -- JSON array of floats
+    embedding_generated_at: Timestamp?
+
+    -- Taxonomy
+    category: Category?
+    subcategory: Subcategory?
+
+    -- Processing status
+    canonical_status: success | failed | pending
+    ai_status: pending | success | failed | skipped
+    ai_retry_count: Integer
+    needs_manual_review: Boolean
+
+    -- Blocked content
+    is_blocked: Boolean
+    blocked_reason: robot | paywall | not_found | access_denied | null
+
+    -- Enrichment pipeline
+    enrichment_status: pending | processing | success | fallback | failed
+    enrichment_retry_count: Integer
+    enrichment_last_attempt: Timestamp?
+    enrichment_source: mercury | jina | firecrawl | oembed | html | ai | url_path | null
+
+    -- Fallback title
+    fallback_title: String?
+    fallback_title_source: ai | url_path | domain | null
+
+    -- Timestamps
+    first_seen_at: Timestamp
+    last_seen_at: Timestamp
+
+    -- Relationships
+    mentions: Mention for this link
+    entities: LinkEntity for this link
+    story_link: StoryLink for this link         -- a link belongs to at most one story
+
+    -- Projections
+    dashboard_mentions: mentions with source.show_on_dashboard = true
+
+    -- Derived
+    velocity: mentions.count
+    display_title: title or fallback_title or domain
+    has_title: title != null and title != ""
+    is_enriched: enrichment_status in [success, fallback]
+    is_analyzed: ai_status = success
+    can_retry_enrichment: enrichment_status = pending and enrichment_retry_count < config.max_enrichment_retries
+    can_retry_analysis: ai_status = pending and ai_retry_count < config.max_ai_retries and has_title
+    has_garbage_title: title != null and Enrichment.is_blocked_title(title)
+    needs_cultural_analysis:
+        is_analyzed
+        and cultural_analyzed_at = null
+        and velocity >= config.cultural_analysis_min_velocity
+}
+
+entity Mention {
+    link: Link
+    source: Source
+    seen_at: Timestamp
+    context: String?                            -- surrounding text snippet
+}
+
+------------------------------------------------------------
+-- Entities: Named Entities (people, orgs, products)
+------------------------------------------------------------
+
+entity Entity {
+    name: String
+    slug: String?
+    type: person | organization | product
+    aliases: List<String>
+    active: Boolean
+    show_in_trending: Boolean
+
+    -- Velocity (computed periodically)
+    velocity_week: Integer
+    velocity_month: Integer
+    velocity_trend: rising | stable | falling | null
+    velocity_updated_at: Timestamp?
+
+    -- Relationships
+    links: LinkEntity for this entity
+
+    -- Derived
+    is_trending: velocity_trend = rising and show_in_trending
+}
+
+entity LinkEntity {
+    link: Link
+    entity: Entity
+}
+
+entity EntitySuggestion {
+    name: String
+    type: person | organization | product
+    aliases: List<String>
+    link_id: String?                            -- link that triggered this
+    status: pending | approved | rejected
+    reviewed_at: Timestamp?
+
+    -- Derived
+    is_pending: status = pending
+}
+
+entity EntityBlocklist {
+    name: String                                -- case-insensitive matching
+    reason: String?
+}
+
+------------------------------------------------------------
+-- Entities: Signals (Generalised Inputs)
+------------------------------------------------------------
+
+-- Signal unifies all input types under one identity.
+-- Links remain as-is. Signals are a new layer that can wrap
+-- a Link or represent a non-link input.
+
+entity Signal {
+    kind: LinkSignal | SocialSignal | PodcastSignal
+
+    -- Common fields
+    title: String?
+    url: URL?
+    source_name: String
+    first_seen_at: Timestamp
+    last_seen_at: Timestamp
+
+    -- Entity associations
+    entities: SignalEntity for this signal
+
+    -- AI enrichment
+    summary: String?
+    analyzed_at: Timestamp?
+
+    -- Derived
+    display_title: title or url or source_name
+    entity_names: entities -> entity.name
+}
+
+variant LinkSignal : Signal {
+    link: Link                                  -- back-reference to Link
+}
+
+variant SocialSignal : Signal {
+    platform: x | bluesky | threads | mastodon
+    author_handle: String
+    author_name: String?
+    content: String                             -- post text
+    engagement: SocialEngagement                -- snapshot at ingest
+    reply_to: SocialSignal?                     -- thread parent
+    media_urls: List<URL>
+}
+
+variant PodcastSignal : Signal {
+    podcast_name: String
+    episode_title: String
+    episode_url: URL
+    pub_date: Timestamp?
+    duration: Duration?
+    description: String?                        -- episode description/show notes (RSS)
+}
+
+entity SignalEntity {
+    signal: Signal
+    entity: Entity
+    role: subject | mentioned | source           -- how the entity relates
+    confidence: Decimal                          -- 0.0-1.0
+}
+
+------------------------------------------------------------
+-- Entities: Social Account Management
+------------------------------------------------------------
+
+-- Social accounts are added manually by admin.
+-- No auto-discovery. Each tracked account becomes an individual source.
+
+entity TrackedSocialAccount {
+    platform: x | bluesky | threads | mastodon
+    handle: String
+    display_name: String?
+    active: Boolean
+    added_at: Timestamp
+    added_by: Admin
+
+    -- Polling state
+    last_fetched_at: Timestamp?
+    last_error: String?
+    consecutive_errors: Integer
+
+    -- Derived
+    is_healthy: consecutive_errors < config.social_max_consecutive_errors
+    is_due_for_poll:
+        active
+        and (last_fetched_at = null
+            or last_fetched_at + config.social_poll_interval <= now)
+}
+
+------------------------------------------------------------
+-- Entities: Podcast Feed Management
+------------------------------------------------------------
+
+-- Podcast feeds are managed like RSS sources.
+-- Only titles and descriptions are ingested — no audio transcription.
+
+entity TrackedPodcastFeed {
+    name: String
+    rss_url: URL
+    active: Boolean
+    added_at: Timestamp
+
+    -- Polling state
+    last_fetched_at: Timestamp?
+    last_error: String?
+    consecutive_errors: Integer
+
+    -- Derived
+    is_healthy: consecutive_errors < config.podcast_max_consecutive_errors
+    is_due_for_poll:
+        active
+        and (last_fetched_at = null
+            or last_fetched_at + config.podcast_poll_interval <= now)
+}
+
+------------------------------------------------------------
+-- Entities: Entity Graph
+------------------------------------------------------------
+
+-- Relationships between entities, requiring human approval.
+-- AI suggests relationships; admin reviews and approves.
+
+entity EntityRelationship {
+    from_entity: Entity
+    to_entity: Entity
+    type: works_at | founded | owns | subsidiary_of | competes_with | partners_with | invested_in
+    status: active | former
+    since: Timestamp?
+    until: Timestamp?
+    source: String?                             -- where this relationship was learned
+
+    -- Derived
+    is_current: status = active
+}
+
+entity EntityRelationshipSuggestion {
+    from_entity: Entity
+    to_entity: Entity
+    suggested_type: works_at | founded | owns | subsidiary_of | competes_with | partners_with | invested_in
+    confidence: Confidence
+    source_signal: Signal?                      -- signal that triggered this suggestion
+    source_description: String?                 -- human-readable context
+
+    status: pending | approved | rejected
+    reviewed_at: Timestamp?
+    reviewed_by: Admin?
+
+    -- Derived
+    is_pending: status = pending
+}
+
+-- Entity-level intelligence summary, refreshed periodically.
+
+entity EntityProfile {
+    entity: Entity
+    bio: String?                                -- AI-generated brief bio
+    key_relationships: List<EntityRelationship>
+    signal_summary: String?                     -- "What's happening with X right now"
+    last_refreshed_at: Timestamp?
+
+    -- Cross-signal velocity
+    link_velocity: Entity.velocity_week
+    social_velocity: Integer                    -- social signals in last 7 days
+    podcast_mentions: Integer                   -- podcast signals in last 7 days
+
+    -- Derived
+    composite_velocity: link_velocity + social_velocity + podcast_mentions
+    is_hot: composite_velocity >= config.entity_hot_threshold
+}
+
+------------------------------------------------------------
+-- Entities: Stories (link clustering)
+------------------------------------------------------------
+
+entity Story {
+    title: String                               -- from highest-velocity link
+    narrative: String?                          -- AI-generated summary
+    status: active | merged | archived
+
+    first_link_at: Timestamp
+    last_link_at: Timestamp
+
+    -- Merge tracking
+    merged_into: Story?                         -- if merged, points to surviving story
+    merged_at: Timestamp?
+    merged_from: Story for this merged_into     -- stories absorbed into this one
+
+    -- Relationships
+    links: StoryLink for this story
+
+    -- Derived
+    link_count: links.count
+    combined_velocity: Scoring.sum_velocity(links)
+    needs_narrative: narrative = null and status = active
+    is_merged: status = merged and merged_into != null
+
+    -- Sub-stories: absorbed stories displayed as sub-headlines
+    sub_stories: merged_from with status = merged
+}
+
+entity StoryLink {
+    story: Story
+    link: Link
+    added_at: Timestamp
+}
+
+------------------------------------------------------------
+-- Entities: Narrative Arcs
+------------------------------------------------------------
+
+-- Stories evolve over time. A NarrativeArc tracks a story's trajectory
+-- across days/weeks, capturing how the conversation shifts.
+-- Beat types are fixed: emergence | escalation | pivot | resolution | resurgence
+
+entity NarrativeArc {
+    story: Story
+    status: developing | climax | resolving | dormant
+
+    -- Timeline of arc beats
+    beats: ArcBeat for this arc
+
+    -- AI-generated
+    arc_summary: String?                        -- "This story started as X, became Y, now Z"
+    predicted_next: String?                     -- what might happen next
+    prediction_confidence: Confidence?
+
+    -- Derived
+    duration: latest_beat.timestamp - earliest_beat.timestamp
+    beat_count: beats.count
+    latest_beat: beats.last
+    earliest_beat: beats.first
+}
+
+entity ArcBeat {
+    arc: NarrativeArc
+    timestamp: Timestamp
+    beat_type: emergence | escalation | pivot | resolution | resurgence
+    summary: String                             -- what changed at this beat
+    signals: List<Signal>                       -- signals that triggered this beat
+    velocity_at_beat: Integer
+
+    -- Derived
+    velocity_delta: velocity_at_beat - arc.beats.previous(this).velocity_at_beat
+}
+
+------------------------------------------------------------
+-- Entities: Cross-Signal Synthesis
+------------------------------------------------------------
+
+-- When the same entity/topic shows up across multiple signal types,
+-- that's a strong cultural indicator.
+
+entity SignalConvergence {
+    entity: Entity
+    detected_at: Timestamp
+    window: TimeWindow
+    status: active | acknowledged | expired
+
+    -- What converged (links, social, podcasts)
+    link_signals: List<Signal> with kind = LinkSignal
+    social_signals: List<Signal> with kind = SocialSignal
+    podcast_signals: List<Signal> with kind = PodcastSignal
+
+    -- AI analysis
+    synthesis: String?                          -- why this convergence matters
+    significance: high | medium | low
+
+    -- Derived
+    signal_type_count:
+        (if link_signals.count > 0: 1 else: 0)
+        + (if social_signals.count > 0: 1 else: 0)
+        + (if podcast_signals.count > 0: 1 else: 0)
+    is_true_convergence: signal_type_count >= config.convergence_min_types
+}
+
+------------------------------------------------------------
+-- Entities: Digests (curation only — no sending)
+------------------------------------------------------------
+
+entity Digest {
+    headline: String
+    status: draft
+
+    -- Relationships
+    items: DigestItem for this digest
+
+    -- Derived
+    item_count: items.count
+}
+
+entity DigestItem {
+    digest: Digest
+    link: Link
+    position: Integer
+    note: String?                               -- editor's note
+}
+
+------------------------------------------------------------
+-- Entities: Weekly Review
+------------------------------------------------------------
+
+entity WeeklyReview {
+    week_of: Timestamp
+    content: String                             -- AI-generated prose
+    status: draft | edited | published
+    byline: String
+    published_at: Timestamp?
+
+    -- Relationships
+    sources: WeeklyReviewSource for this weekly_review
+}
+
+entity WeeklyReviewSource {
+    weekly_review: WeeklyReview
+    link: Link
+    footnote_number: Integer
+    claim_text: String?
+}
+
+------------------------------------------------------------
+-- Entities: Blacklist & URL Cache
+------------------------------------------------------------
+
+entity Blacklist {
+    pattern: String                             -- domain or URL
+    type: domain | url
+    reason: String?
+}
+
+entity UrlCache {
+    original_url: URL
+    canonical_url: URL
+    redirect_chain: List<URL>
+    resolved_at: Timestamp
+    expires_at: Timestamp
+
+    -- Derived
+    is_expired: expires_at <= now
+}
+
+------------------------------------------------------------
+-- Entities: Delivery — Channels
+------------------------------------------------------------
+
+entity Channel {
+    name: String
+    type: slack | email | webhook
+    active: Boolean
+
+    -- Type-specific config
+    slack_webhook_url: URL?
+    slack_channel: String?
+    email_addresses: List<String>?
+    webhook_url: URL?
+    webhook_secret: String?
+
+    -- Derived
+    is_configured:
+        (type = slack and slack_webhook_url != null)
+        or (type = email and email_addresses != null and email_addresses.count > 0)
+        or (type = webhook and webhook_url != null)
+}
+
+------------------------------------------------------------
+-- Entities: Delivery — Watchlists & Alerts
+------------------------------------------------------------
+
+entity Watchlist {
+    name: String                                -- "AI Companies", "Sports Business"
+    description: String?
+
+    items: WatchlistItem for this watchlist
+    alerts: Alert for this watchlist
+
+    -- Derived
+    item_count: items.count
+    active_alerts: alerts with status = active
+}
+
+entity WatchlistItem {
+    watchlist: Watchlist
+    item_type: entity | category | domain | keyword
+    -- Exactly one of these is set based on item_type
+    entity: Entity?
+    category: Category?
+    domain: String?
+    keyword: String?
+
+    -- Derived
+    display_name:
+        if item_type = entity: entity.name
+        else if item_type = category: category.name
+        else if item_type = domain: domain
+        else: keyword
+}
+
+entity AlertRule {
+    watchlist: Watchlist
+    name: String
+    active: Boolean
+
+    -- Trigger conditions (any combination)
+    velocity_threshold: Integer?                -- link velocity crosses this
+    convergence_trigger: Boolean?               -- cross-signal convergence detected
+    new_entity_trigger: Boolean?                -- new entity enters the watchlist's space
+    arc_beat_trigger: Boolean?                  -- narrative arc has a new beat
+
+    -- Delivery
+    channel: Channel
+    cooldown: Duration                          -- minimum time between alerts
+
+    -- Derived
+    has_velocity_trigger: velocity_threshold != null
+    has_convergence_trigger: convergence_trigger = true
+}
+
+entity Alert {
+    watchlist: Watchlist
+    rule: AlertRule
+    status: active | acknowledged | expired
+    triggered_at: Timestamp
+    acknowledged_at: Timestamp?
+
+    -- What triggered it
+    trigger_type: velocity | convergence | new_entity | arc_beat
+    trigger_summary: String
+    trigger_signals: List<Signal>
+    trigger_entity: Entity?
+
+    -- Diminishing priority
+    priority: Decimal                           -- 1.0 = full priority, decays on repetition
+    pattern_hash: String                        -- hash of (rule + trigger_type + entity)
+    pattern_occurrence: Integer                 -- how many times this pattern has fired
+
+    -- Delivery
+    delivered_via: Channel
+    delivered_at: Timestamp?
+
+    -- Derived
+    is_pending_delivery: delivered_at = null and status = active
+    effective_priority: priority * config.alert_priority_floor.max(
+        config.alert_decay_rate ^ pattern_occurrence
+    )
+}
+
+entity AlertPatternHistory {
+    pattern_hash: String                        -- unique key for (rule + trigger_type + entity)
+    rule: AlertRule
+    trigger_type: velocity | convergence | new_entity | arc_beat
+    entity: Entity?
+
+    occurrence_count: Integer
+    last_fired_at: Timestamp
+    last_priority: Decimal
+
+    -- Derived
+    next_priority: config.alert_priority_floor.max(
+        config.alert_decay_rate ^ occurrence_count
+    )
+}
+
+------------------------------------------------------------
+-- Entities: Briefings
+------------------------------------------------------------
+
+entity BriefingConfig {
+    name: String                                -- "default", "executive", "deep-dive"
+    active: Boolean
+
+    -- Template control
+    include_top_signals: Boolean
+    include_rising_entities: Boolean
+    include_convergences: Boolean
+    include_arc_updates: Boolean
+    include_contrarian_take: Boolean
+
+    -- Limits
+    top_signals_count: Integer
+    rising_entities_count: Integer
+
+    -- Tone & style
+    voice_prompt: String?                       -- custom prompt for prose generation
+    prose_length: short | medium | long         -- ~1 paragraph | ~3 paragraphs | ~5 paragraphs
+
+    -- Delivery
+    channels: List<Channel>
+    schedule_time: String?                      -- "07:00" or null for manual only
+    schedule_timezone: String?
+}
+
+entity Briefing {
+    date: Timestamp
+    config: BriefingConfig
+    status: generating | ready | delivered | failed
+    generated_at: Timestamp?
+
+    -- Content sections (populated based on config)
+    headline: String?                           -- one-line "what matters today"
+    top_signals: List<Signal>                   -- highest-velocity signals
+    rising_entities: List<Entity>               -- entities accelerating
+    convergences: List<SignalConvergence>        -- cross-signal patterns
+    arc_updates: List<ArcBeat>                  -- narrative arcs with new beats
+    contrarian_take: String?                    -- AI-generated "what everyone's missing"
+
+    -- Full prose version
+    prose: String?                              -- Daily Bunch voice
+
+    -- Delivery tracking
+    channels_delivered: List<Channel>
+
+    -- Derived
+    is_ready: status = ready and prose != null
+    signal_count: top_signals.count
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    -- Scoring
+    tier_1_weight: Integer = 10
+    tier_2_weight: Integer = 7
+    tier_3_weight: Integer = 5
+    tier_4_weight: Integer = 2
+
+    time_decay_24h: Decimal = 1.0
+    time_decay_48h: Decimal = 0.7
+    time_decay_72h: Decimal = 0.4
+    time_decay_older: Decimal = 0.2
+
+    trending_min_velocity: Integer = 2
+    trending_min_weighted: Decimal = 1.5
+
+    -- Ranking
+    ranking_gravity: Decimal = 1.8
+
+    -- Processing limits
+    max_ai_retries: Integer = 3
+    max_enrichment_retries: Integer = 5
+    enrichment_batch_size: Integer = 10
+    analysis_batch_size: Integer = 100
+    analysis_concurrency: Integer = 10
+    embedding_batch_size: Integer = 50
+
+    -- Cultural analysis
+    cultural_analysis_min_velocity: Integer = 3 -- configurable Layer 2 threshold
+
+    -- Clustering
+    similarity_threshold: Decimal = 0.8
+    cluster_min_links: Integer = 2
+    cluster_window: Duration = 7.days
+
+    -- Story merging
+    story_merge_overlap_ratio: Decimal = 0.5    -- merge when 50%+ links overlap
+
+    -- Source health
+    source_max_consecutive_errors: Integer = 5  -- auto-deactivate after this many
+
+    -- Social signals
+    social_min_engagement: Integer = 100        -- minimum total engagement to ingest
+    social_poll_interval: Duration = 15.minutes
+    social_max_consecutive_errors: Integer = 5
+
+    -- Podcasts (titles & descriptions only — no transcription)
+    podcast_poll_interval: Duration = 1.hour
+    podcast_max_consecutive_errors: Integer = 5
+
+    -- Entity graph
+    entity_hot_threshold: Integer = 10          -- composite velocity for "hot" status
+    entity_profile_refresh: Duration = 6.hours
+
+    -- Entity trends
+    entity_rising_ratio: Decimal = 1.5
+    entity_falling_ratio: Decimal = 0.5
+    entity_trend_window: Duration = 7.days
+
+    -- Rising links
+    recent_window: Duration = 24.hours
+    comparison_window: Duration = 72.hours
+    rising_min_recent_velocity: Integer = 2
+
+    -- Convergence detection
+    convergence_window: Duration = 48.hours
+    convergence_min_types: Integer = 2          -- signal types needed for convergence
+    convergence_check_interval: Duration = 1.hour
+
+    -- Narrative arcs (beat types fixed: emergence | escalation | pivot | resolution | resurgence)
+    arc_check_interval: Duration = 6.hours
+    arc_dormant_after: Duration = 72.hours      -- no new beats for 3 days = dormant
+
+    -- Briefings (admin-configurable via BriefingConfig)
+    briefing_lookback: Duration = 24.hours
+
+    -- Alerts
+    alert_default_cooldown: Duration = 4.hours
+    alert_max_per_day: Integer = 20             -- prevent alert fatigue
+    alert_decay_rate: Decimal = 0.8             -- priority multiplier per repeat
+    alert_priority_floor: Decimal = 0.2         -- minimum priority (never fully suppressed)
+
+    -- Weekly review
+    weekly_review_min_velocity: Integer = 2
+    weekly_review_max_links: Integer = 20
+    weekly_review_window: Duration = 7.days
+}
+
+------------------------------------------------------------
+-- Defaults
+------------------------------------------------------------
+
+default Category sports = { name: "SPORTS", slug: "sports" }
+default Category culture = { name: "CULTURE", slug: "culture" }
+default Category business = { name: "BUSINESS", slug: "business" }
+default Category ai = { name: "AI", slug: "ai" }
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor Admin {
+    identified_by: authenticated_admin_session
+}
+
+actor Reader {
+    identified_by: public_visitor
+}
+
+------------------------------------------------------------
+-- Rules: RSS Ingestion
+------------------------------------------------------------
+
+rule PollRssSources {
+    when: _: Source.is_due_for_poll
+    for source in Source with active = true and type = rss and is_due_for_poll:
+        requires: source.url != null
+        ensures: FeedFetched(source)
+}
+
+rule ProcessFeedItems {
+    when: FeedFetched(source)
+    for item in source.fetched_items:
+        for content_link in item.content_links:
+            requires: not Blacklist.matches(content_link)
+            requires: source.include_own_links or not content_link.is_same_domain(source.base_domain)
+            ensures: LinkIngested(content_link, source, item)
+}
+
+rule IngestLink {
+    when: LinkIngested(url, source, item)
+    let canonical = Canonicalization.resolve(url)
+    requires: not Blacklist.matches(canonical.canonical_url)
+    let title = item.title or canonical.title or null
+    let media_type = MediaType.detect(canonical.canonical_url)
+
+    ensures:
+        let link = Link.upserted(
+            canonical_url: canonical.canonical_url,
+            original_url: url,
+            domain: canonical.domain,
+            title: title,
+            description: item.description or canonical.description,
+            media_type: media_type,
+            canonical_status: canonical.status,
+            enrichment_status: if title != null: success else: pending
+        )
+        Mention.created(
+            link: link,
+            source: source,
+            seen_at: now
+        )
+}
+
+rule RecordFeedSuccess {
+    when: FeedFetched(source)
+    requires: source.fetch_succeeded
+    ensures:
+        source.last_fetched_at = now
+        source.last_error = null
+        source.last_error_at = null
+        source.consecutive_errors = 0
+}
+
+rule RecordFeedFailure {
+    when: FeedFetched(source)
+    requires: not source.fetch_succeeded
+    ensures:
+        source.last_error = source.fetch_error
+        source.last_error_at = now
+        source.consecutive_errors = source.consecutive_errors + 1
+}
+
+------------------------------------------------------------
+-- Rules: Source Auto-Deactivation
+------------------------------------------------------------
+
+rule AutoDeactivateSource {
+    when: source: Source.consecutive_errors >= config.source_max_consecutive_errors
+    requires: source.active = true
+    requires: source.deactivated_at = null
+    ensures:
+        source.active = false
+        source.deactivated_at = now
+        source.deactivation_reason = "Exceeded " + config.source_max_consecutive_errors + " consecutive fetch errors. Last error: " + source.last_error
+}
+
+rule ReactivateSource {
+    when: AdminReactivatesSource(source)
+    requires: source.is_auto_deactivated
+    ensures:
+        source.active = true
+        source.deactivated_at = null
+        source.deactivation_reason = null
+        source.consecutive_errors = 0
+        source.last_error = null
+        source.last_error_at = null
+}
+
+------------------------------------------------------------
+-- Rules: Social Signal Ingestion
+------------------------------------------------------------
+
+rule PollSocialFeeds {
+    when: _: TrackedSocialAccount.is_due_for_poll
+    for account in TrackedSocialAccount with active = true and is_due_for_poll:
+        ensures: SocialFeedFetched(account)
+}
+
+rule IngestSocialPost {
+    when: SocialFeedFetched(account)
+    for post in account.new_posts:
+        requires: post.engagement.total >= config.social_min_engagement
+        requires: not SocialSignal.exists_for(post.platform, post.id)
+
+        ensures:
+            let signal = SocialSignal.created(
+                platform: post.platform,
+                author_handle: post.author_handle,
+                author_name: post.author_name,
+                content: post.content,
+                engagement: post.engagement,
+                title: post.content.truncate(120),
+                source_name: post.author_handle + " on " + post.platform,
+                url: post.url,
+                first_seen_at: post.posted_at,
+                last_seen_at: now
+            )
+            SignalIngested(signal)
+}
+
+rule RecordSocialFetchSuccess {
+    when: SocialFeedFetched(account)
+    requires: account.fetch_succeeded
+    ensures:
+        account.last_fetched_at = now
+        account.last_error = null
+        account.consecutive_errors = 0
+}
+
+rule RecordSocialFetchFailure {
+    when: SocialFeedFetched(account)
+    requires: not account.fetch_succeeded
+    ensures:
+        account.last_error = account.fetch_error
+        account.consecutive_errors = account.consecutive_errors + 1
+}
+
+------------------------------------------------------------
+-- Rules: Podcast Signal Ingestion
+------------------------------------------------------------
+
+-- Podcasts ingest titles and descriptions only. No audio transcription.
+
+rule PollPodcastFeeds {
+    when: _: TrackedPodcastFeed.is_due_for_poll
+    for feed in TrackedPodcastFeed with active = true and is_due_for_poll:
+        ensures: PodcastFeedFetched(feed)
+}
+
+rule IngestPodcastEpisode {
+    when: PodcastFeedFetched(feed)
+    for episode in feed.new_episodes:
+        requires: not PodcastSignal.exists_for(episode.url)
+
+        ensures:
+            let signal = PodcastSignal.created(
+                podcast_name: feed.name,
+                episode_title: episode.title,
+                episode_url: episode.url,
+                pub_date: episode.pub_date,
+                duration: episode.duration,
+                description: episode.description,
+                title: episode.title,
+                source_name: feed.name,
+                url: episode.url,
+                first_seen_at: episode.pub_date or now,
+                last_seen_at: now
+            )
+            SignalIngested(signal)
+}
+
+rule RecordPodcastFetchSuccess {
+    when: PodcastFeedFetched(feed)
+    requires: feed.fetch_succeeded
+    ensures:
+        feed.last_fetched_at = now
+        feed.last_error = null
+        feed.consecutive_errors = 0
+}
+
+rule RecordPodcastFetchFailure {
+    when: PodcastFeedFetched(feed)
+    requires: not feed.fetch_succeeded
+    ensures:
+        feed.last_error = feed.fetch_error
+        feed.consecutive_errors = feed.consecutive_errors + 1
+}
+
+------------------------------------------------------------
+-- Rules: Enrichment Pipeline
+------------------------------------------------------------
+
+-- Multi-tier: oEmbed -> Mercury -> Jina -> Firecrawl -> AI title -> URL path
+
+rule ResetGarbageTitles {
+    when: link: Link.has_garbage_title
+    requires: link.enrichment_status in [success, fallback]
+    ensures:
+        link.title = null
+        link.enrichment_status = pending
+        link.enrichment_retry_count = 0
+}
+
+rule EnrichPendingLink {
+    when: link: Link.enrichment_status = pending
+    requires: link.can_retry_enrichment
+    ensures: link.enrichment_status = processing
+
+    ensures: EnrichmentAttempted(link)
+}
+
+rule EnrichmentSucceeded {
+    when: EnrichmentAttempted(link)
+    requires: link.enrichment_result.status = success
+    let result = link.enrichment_result
+
+    ensures:
+        if Enrichment.is_blocked_title(result.title):
+            link.is_blocked = true
+            link.blocked_reason = Enrichment.blocked_reason(result.title)
+            link.enrichment_status = success
+        else:
+            link.title = result.title
+            link.description = result.description or link.description
+            link.author = result.author
+            link.image_url = result.image_url
+            link.published_at = result.published_at
+            link.enrichment_status = success
+            link.enrichment_source = result.source
+}
+
+rule EnrichmentFallback {
+    when: EnrichmentAttempted(link)
+    requires: link.enrichment_result.status = fallback
+    ensures:
+        link.fallback_title = link.enrichment_result.title
+        link.fallback_title_source = link.enrichment_result.source
+        link.enrichment_status = fallback
+        link.enrichment_source = link.enrichment_result.source
+}
+
+rule EnrichmentFailed {
+    when: EnrichmentAttempted(link)
+    requires: link.enrichment_result.status = failed
+    ensures:
+        link.enrichment_status = pending
+        link.enrichment_retry_count = link.enrichment_retry_count + 1
+        link.enrichment_error = link.enrichment_result.error
+}
+
+------------------------------------------------------------
+-- Rules: AI Analysis (Layer 1)
+------------------------------------------------------------
+
+rule AnalyzePendingLinks {
+    when: link: Link.can_retry_analysis
+    requires: link.has_title
+    requires: link.is_blocked = false
+    ensures: AnalysisAttempted(link)
+}
+
+rule AnalysisSucceeded {
+    when: AnalysisAttempted(link)
+    requires: link.analysis_result != null
+    let result = link.analysis_result
+
+    ensures:
+        link.category = result.category
+        link.subcategory = result.subcategory
+        link.ai_summary = result.summary
+        link.ai_analyzed_at = now
+        link.ai_status = success
+
+        -- Associate matched entities
+        for entity_id in result.matched_entity_ids:
+            LinkEntity.upserted(link: link, entity: Entity{id: entity_id})
+
+        -- Queue suggested entities (skip blocked + duplicates)
+        for suggestion in result.suggested_entities:
+            if not EntityBlocklist.matches(suggestion.name)
+               and not EntitySuggestion.pending_exists(suggestion.name, suggestion.type):
+                EntitySuggestion.created(
+                    name: suggestion.name,
+                    type: suggestion.type,
+                    aliases: suggestion.aliases,
+                    link_id: link.id,
+                    status: pending
+                )
+}
+
+rule AnalysisFailed {
+    when: AnalysisAttempted(link)
+    requires: link.analysis_result = null
+    ensures:
+        link.ai_retry_count = link.ai_retry_count + 1
+        link.ai_status =
+            if link.ai_retry_count + 1 >= config.max_ai_retries: failed
+            else: pending
+}
+
+------------------------------------------------------------
+-- Rules: Cultural Analysis (Layer 2)
+------------------------------------------------------------
+
+rule AnalyzeCulturally {
+    when: link: Link.needs_cultural_analysis
+    ensures: CulturalAnalysis.analyze(link)
+}
+
+------------------------------------------------------------
+-- Rules: Signal Analysis (Shared — social, podcast)
+------------------------------------------------------------
+
+rule AnalyzeNewSignal {
+    when: SignalIngested(signal)
+    ensures:
+        -- Extract and associate entities
+        let entities = EntityExtractor.from_signal(signal)
+        for entity_match in entities:
+            SignalEntity.created(
+                signal: signal,
+                entity: entity_match.entity,
+                role: entity_match.role,
+                confidence: entity_match.confidence
+            )
+        -- Generate summary
+        signal.summary = Summarizer.summarize(signal)
+        signal.analyzed_at = now
+}
+
+------------------------------------------------------------
+-- Rules: Entity Graph (Human-Approved Relationships)
+------------------------------------------------------------
+
+-- AI suggests relationships from co-occurring entities.
+-- Admin must approve before they become real relationships.
+
+rule SuggestEntityRelationship {
+    when: signal: Signal.analyzed_at != null
+    let entity_pairs = signal.entities with confidence >= 0.8
+    for pair in entity_pairs.combinations(2):
+        -- Skip if relationship already exists
+        let existing_rel = EntityRelationship{from_entity: pair.first.entity, to_entity: pair.second.entity}
+        requires: not exists existing_rel
+        -- Skip if suggestion already pending
+        let existing_suggestion = EntityRelationshipSuggestion{
+            from_entity: pair.first.entity,
+            to_entity: pair.second.entity,
+            status: pending
+        }
+        requires: not exists existing_suggestion
+
+        let inferred = RelationshipInference.infer(pair.first, pair.second, signal)
+        requires: inferred != null
+
+        ensures:
+            EntityRelationshipSuggestion.created(
+                from_entity: pair.first.entity,
+                to_entity: pair.second.entity,
+                suggested_type: inferred.type,
+                confidence: inferred.confidence,
+                source_signal: signal,
+                source_description: inferred.reasoning,
+                status: pending
+            )
+}
+
+rule ApproveEntityRelationship {
+    when: AdminApprovesRelationship(suggestion)
+    requires: suggestion.is_pending
+    ensures:
+        suggestion.status = approved
+        suggestion.reviewed_at = now
+        suggestion.reviewed_by = admin
+        EntityRelationship.created(
+            from_entity: suggestion.from_entity,
+            to_entity: suggestion.to_entity,
+            type: suggestion.suggested_type,
+            status: active,
+            source: suggestion.source_description
+        )
+}
+
+rule RejectEntityRelationship {
+    when: AdminRejectsRelationship(suggestion)
+    requires: suggestion.is_pending
+    ensures:
+        suggestion.status = rejected
+        suggestion.reviewed_at = now
+        suggestion.reviewed_by = admin
+}
+
+rule RefreshEntityProfile {
+    when: entity: Entity.velocity_updated_at != null
+    let profile = EntityProfile for entity
+    requires: profile.last_refreshed_at = null
+        or profile.last_refreshed_at + config.entity_profile_refresh <= now
+    ensures:
+        profile.signal_summary = EntityIntelligence.summarize(entity)
+        profile.bio = EntityIntelligence.bio(entity)
+            when profile.bio = null
+        profile.social_velocity = Signal with kind = SocialSignal
+            and entities.any(se => se.entity = entity)
+            and first_seen_at >= now - 7.days
+            .count
+        profile.podcast_mentions = Signal with kind = PodcastSignal
+            and entities.any(se => se.entity = entity)
+            and first_seen_at >= now - 7.days
+            .count
+        profile.last_refreshed_at = now
+}
+
+------------------------------------------------------------
+-- Rules: Embeddings & Clustering
+------------------------------------------------------------
+
+rule GenerateEmbedding {
+    when: link: Link.is_enriched
+    requires: link.embedding = null
+    requires: link.is_blocked = false
+    requires: link.first_seen_at >= now - config.cluster_window
+    requires: link.has_title
+    ensures: link.embedding = Embeddings.generate(link.display_title, link.ai_summary)
+}
+
+rule ClusterLinks {
+    -- Runs periodically (every 6 hours)
+    when: ClusteringScheduled
+    let recent_links = Link with embedding != null
+                       and is_blocked = false
+                       and first_seen_at >= now - config.cluster_window
+                       and has_title
+    let clusters = Clustering.compute(recent_links, config.similarity_threshold)
+
+    for cluster in clusters:
+        requires: cluster.links.count >= config.cluster_min_links
+
+        ensures:
+            if cluster.has_existing_story:
+                -- Add new links to existing story
+                let story = cluster.existing_story
+                story.last_link_at = cluster.latest_first_seen
+                story.narrative = null  -- reset for regeneration
+                for link in cluster.new_links:
+                    StoryLink.created(story: story, link: link)
+            else:
+                -- Create new story
+                let story = Story.created(
+                    title: cluster.representative_title,
+                    status: active,
+                    first_link_at: cluster.earliest_first_seen,
+                    last_link_at: cluster.latest_first_seen
+                )
+                for link in cluster.links:
+                    StoryLink.created(story: story, link: link)
+}
+
+rule GenerateNarrative {
+    when: story: Story.needs_narrative
+    requires: story.status = active
+    ensures: story.narrative = Narratives.generate(story)
+}
+
+------------------------------------------------------------
+-- Rules: Story Merging
+------------------------------------------------------------
+
+rule AutoMergeStories {
+    -- Runs after clustering
+    when: ClusteringCompleted
+    for story_a in Story with status = active:
+        for story_b in Story with status = active and id > story_a.id:
+            let shared_links = story_a.links.intersection(story_b.links)
+            let smaller_count = if story_a.link_count <= story_b.link_count:
+                story_a.link_count else: story_b.link_count
+            let overlap_ratio = shared_links.count / smaller_count
+
+            requires: overlap_ratio >= config.story_merge_overlap_ratio
+
+            -- Merge smaller into larger
+            let survivor = if story_a.combined_velocity >= story_b.combined_velocity:
+                story_a else: story_b
+            let absorbed = if survivor = story_a: story_b else: story_a
+
+            ensures:
+                -- Move links from absorbed to survivor
+                for sl in absorbed.links:
+                    if not survivor.links.any(existing => existing.link = sl.link):
+                        StoryLink.created(story: survivor, link: sl.link, added_at: sl.added_at)
+
+                -- Mark absorbed as merged
+                absorbed.status = merged
+                absorbed.merged_into = survivor
+                absorbed.merged_at = now
+
+                -- Update survivor timestamps and reset narrative
+                survivor.first_link_at = if absorbed.first_link_at < survivor.first_link_at:
+                    absorbed.first_link_at else: survivor.first_link_at
+                survivor.last_link_at = if absorbed.last_link_at > survivor.last_link_at:
+                    absorbed.last_link_at else: survivor.last_link_at
+                survivor.narrative = null  -- regenerate with merged context
+}
+
+rule ManualSplitStory {
+    when: AdminSplitsStory(story, link_ids_to_separate)
+    requires: story.status = active
+    requires: link_ids_to_separate.count > 0
+    requires: link_ids_to_separate.count < story.link_count  -- can't separate all links
+
+    let remaining_links = story.links with link.id not in link_ids_to_separate
+
+    ensures:
+        -- Create new story from separated links
+        let separated_links = story.links with link.id in link_ids_to_separate
+        let new_story = Story.created(
+            title: separated_links.first.link.display_title,
+            status: active,
+            first_link_at: separated_links.min(sl => sl.link.first_seen_at),
+            last_link_at: separated_links.max(sl => sl.link.first_seen_at)
+        )
+        for sl in separated_links:
+            sl.story = new_story
+
+        -- Reset narrative on both stories
+        story.narrative = null
+        -- Update original story timestamps
+        story.first_link_at = remaining_links.min(sl => sl.link.first_seen_at)
+        story.last_link_at = remaining_links.max(sl => sl.link.first_seen_at)
+}
+
+------------------------------------------------------------
+-- Rules: Narrative Arcs
+------------------------------------------------------------
+
+rule DetectArcBeat {
+    when: ArcCheckScheduled
+    for story in Story with status = active:
+        let arc = NarrativeArc for story
+        let recent_signals = story.signals_since(arc.latest_beat.timestamp or story.first_link_at)
+
+        requires: recent_signals.count > 0
+
+        let beat_type = ArcAnalysis.classify_beat(story, arc, recent_signals)
+
+        ensures:
+            if not exists arc:
+                let new_arc = NarrativeArc.created(
+                    story: story,
+                    status: developing
+                )
+                ArcBeat.created(
+                    arc: new_arc,
+                    timestamp: now,
+                    beat_type: emergence,
+                    summary: ArcAnalysis.summarize_beat(emergence, story, recent_signals),
+                    signals: recent_signals,
+                    velocity_at_beat: story.combined_velocity
+                )
+            else:
+                ArcBeat.created(
+                    arc: arc,
+                    timestamp: now,
+                    beat_type: beat_type,
+                    summary: ArcAnalysis.summarize_beat(beat_type, story, recent_signals),
+                    signals: recent_signals,
+                    velocity_at_beat: story.combined_velocity
+                )
+                arc.arc_summary = ArcAnalysis.update_summary(arc)
+                arc.predicted_next = ArcAnalysis.predict_next(arc)
+                arc.status =
+                    if beat_type = resolution: resolving
+                    else if beat_type = resurgence: developing
+                    else: arc.status
+}
+
+rule MarkArcDormant {
+    when: arc: NarrativeArc.latest_beat.timestamp + config.arc_dormant_after <= now
+    requires: arc.status in [developing, climax]
+    ensures: arc.status = dormant
+}
+
+------------------------------------------------------------
+-- Rules: Trend Detection
+------------------------------------------------------------
+
+rule UpdateEntityVelocities {
+    -- Runs periodically (every 6 hours)
+    when: TrendUpdateScheduled
+    for entity in Entity with active = true:
+        let week_links = entity.links with link.first_seen_at >= now - config.entity_trend_window
+        let month_links = entity.links with link.first_seen_at >= now - 30.days
+        let prior_week_links = entity.links
+            with link.first_seen_at >= now - (config.entity_trend_window * 2)
+            and link.first_seen_at < now - config.entity_trend_window
+
+        let ratio = if prior_week_links.count > 0:
+            week_links.count / prior_week_links.count
+            else: null
+
+        ensures:
+            entity.velocity_week = week_links.count
+            entity.velocity_month = month_links.count
+            entity.velocity_updated_at = now
+            entity.velocity_trend =
+                if ratio = null and week_links.count > 0: rising
+                else if ratio >= config.entity_rising_ratio: rising
+                else if ratio <= config.entity_falling_ratio: falling
+                else: stable
+}
+
+------------------------------------------------------------
+-- Rules: Cross-Signal Convergence
+------------------------------------------------------------
+
+rule DetectConvergence {
+    when: ConvergenceCheckScheduled
+    for entity in Entity with active = true:
+        let window = TimeWindow{start: now - config.convergence_window, end: now}
+        let signals = Signal with entities.any(se => se.entity = entity)
+            and first_seen_at >= window.start
+
+        let link_count = signals with kind = LinkSignal .count
+        let social_count = signals with kind = SocialSignal .count
+        let podcast_count = signals with kind = PodcastSignal .count
+
+        let type_count =
+            (if link_count > 0: 1 else: 0)
+            + (if social_count > 0: 1 else: 0)
+            + (if podcast_count > 0: 1 else: 0)
+
+        requires: type_count >= config.convergence_min_types
+        requires: not SignalConvergence.active_for(entity)
+
+        ensures:
+            SignalConvergence.created(
+                entity: entity,
+                detected_at: now,
+                window: window,
+                status: active,
+                link_signals: signals with kind = LinkSignal,
+                social_signals: signals with kind = SocialSignal,
+                podcast_signals: signals with kind = PodcastSignal,
+                synthesis: ConvergenceAnalysis.synthesize(entity, signals),
+                significance: ConvergenceAnalysis.assess_significance(entity, signals)
+            )
+            ConvergenceDetected(entity)
+}
+
+------------------------------------------------------------
+-- Rules: Alerts (with Diminishing Priority)
+------------------------------------------------------------
+
+rule EvaluateAlertRules {
+    when: SignalIngested(signal)
+    for entity in signal.entities -> entity:
+        for item in WatchlistItem with entity = entity:
+            for rule in item.watchlist.alerts_rules with active = true:
+                ensures: AlertRuleEvaluated(rule, signal, entity)
+}
+
+rule EvaluateConvergenceAlert {
+    when: ConvergenceDetected(entity)
+    for item in WatchlistItem with entity = entity:
+        for rule in item.watchlist.alerts_rules with active = true and has_convergence_trigger:
+            ensures: AlertRuleEvaluated(rule, null, entity)
+}
+
+rule FireAlert {
+    when: AlertRuleEvaluated(rule, signal?, entity?)
+    requires: AlertEvaluation.should_fire(rule, signal, entity)
+    requires: rule.last_fired_at = null or rule.last_fired_at + rule.cooldown <= now
+    requires: Alert.count_today(rule.watchlist) < config.alert_max_per_day
+
+    let trigger_type = AlertEvaluation.determine_trigger_type(rule, signal, entity)
+    let trigger_summary = AlertEvaluation.summarize_trigger(rule, signal, entity)
+    let pattern_hash = AlertPatternHash.compute(rule, trigger_type, entity)
+
+    -- Look up or create pattern history for diminishing priority
+    let history = AlertPatternHistory.upserted(pattern_hash: pattern_hash)
+    let priority = history.next_priority
+
+    ensures:
+        let alert = Alert.created(
+            watchlist: rule.watchlist,
+            rule: rule,
+            status: active,
+            triggered_at: now,
+            trigger_type: trigger_type,
+            trigger_summary: trigger_summary,
+            trigger_signals: if signal != null: [signal] else: [],
+            trigger_entity: entity,
+            delivered_via: rule.channel,
+            priority: priority,
+            pattern_hash: pattern_hash,
+            pattern_occurrence: history.occurrence_count
+        )
+
+        -- Update pattern history
+        history.occurrence_count = history.occurrence_count + 1
+        history.last_fired_at = now
+        history.last_priority = priority
+
+        -- Only deliver if priority above floor
+        if priority >= config.alert_priority_floor:
+            DeliverAlert(alert)
+}
+
+rule DeliverAlert {
+    when: DeliverAlert(alert)
+    requires: alert.is_pending_delivery
+    requires: alert.delivered_via.is_configured
+
+    ensures:
+        if alert.delivered_via.type = slack:
+            SlackMessage.sent(
+                webhook_url: alert.delivered_via.slack_webhook_url,
+                channel: alert.delivered_via.slack_channel,
+                text: alert.trigger_summary
+            )
+        else if alert.delivered_via.type = email:
+            Email.sent(
+                to: alert.delivered_via.email_addresses,
+                subject: "Daily Bunch Alert: " + alert.trigger_summary.truncate(60),
+                template: alert_email,
+                data: { alert: alert }
+            )
+        else if alert.delivered_via.type = webhook:
+            WebhookCall.sent(
+                url: alert.delivered_via.webhook_url,
+                secret: alert.delivered_via.webhook_secret,
+                payload: alert
+            )
+        alert.delivered_at = now
+}
+
+------------------------------------------------------------
+-- Rules: Briefings (Admin-Configurable)
+------------------------------------------------------------
+
+rule GenerateDailyBriefing {
+    when: BriefingScheduled(briefing_config)     -- fires per BriefingConfig with schedule_time
+    requires: briefing_config.active
+    requires: not Briefing.exists_for(today, briefing_config)
+
+    ensures:
+        let briefing = Briefing.created(
+            date: now,
+            config: briefing_config,
+            status: generating
+        )
+        BriefingGeneration(briefing)
+}
+
+rule CompileBriefing {
+    when: BriefingGeneration(briefing)
+    let lookback = now - config.briefing_lookback
+    let bc = briefing.config
+
+    let top = if bc.include_top_signals:
+        Signal with first_seen_at >= lookback
+            .sort_by_velocity.take(bc.top_signals_count)
+        else: []
+
+    let rising = if bc.include_rising_entities:
+        Entity with velocity_trend = rising and show_in_trending
+            .sort_by(velocity_week).take(bc.rising_entities_count)
+        else: []
+
+    let convergences = if bc.include_convergences:
+        SignalConvergence with status = active
+            and detected_at >= lookback
+        else: []
+
+    let arc_updates = if bc.include_arc_updates:
+        ArcBeat with timestamp >= lookback
+            .sort_by(timestamp)
+        else: []
+
+    ensures:
+        briefing.top_signals = top
+        briefing.rising_entities = rising
+        briefing.convergences = convergences
+        briefing.arc_updates = arc_updates
+        briefing.headline = BriefingWriter.headline(top, rising, convergences)
+        briefing.prose = BriefingWriter.prose(briefing, bc.voice_prompt, bc.prose_length)
+        briefing.contrarian_take =
+            if bc.include_contrarian_take: BriefingWriter.contrarian(briefing)
+            else: null
+        briefing.status = ready
+        briefing.generated_at = now
+
+        -- Deliver to channels configured on this briefing config
+        for channel in bc.channels with active = true:
+            BriefingDelivered(briefing, channel)
+}
+
+rule DeliverBriefing {
+    when: BriefingDelivered(briefing, channel)
+    requires: briefing.is_ready
+    requires: channel.is_configured
+
+    ensures:
+        if channel.type = email:
+            Email.sent(
+                to: channel.email_addresses,
+                subject: "Daily Bunch — " + now.format("MMM d") + ": " + briefing.headline,
+                template: briefing_email,
+                data: { briefing: briefing }
+            )
+        else if channel.type = slack:
+            SlackMessage.sent(
+                webhook_url: channel.slack_webhook_url,
+                channel: channel.slack_channel,
+                text: BriefingFormatter.to_slack(briefing)
+            )
+        else if channel.type = webhook:
+            WebhookCall.sent(
+                url: channel.webhook_url,
+                secret: channel.webhook_secret,
+                payload: BriefingFormatter.to_json(briefing)
+            )
+        briefing.channels_delivered = briefing.channels_delivered.add(channel)
+}
+
+------------------------------------------------------------
+-- Rules: Digest Management (curation only)
+------------------------------------------------------------
+
+rule CreateDigest {
+    when: AdminCreatesDigest(link_ids, title?, notes?)
+    requires: link_ids.count > 0
+
+    let headline = title or "Digest - " + now.format("MMM d, yyyy")
+
+    ensures:
+        let digest = Digest.created(
+            headline: headline,
+            status: draft
+        )
+        for link_id, index in link_ids:
+            DigestItem.created(
+                digest: digest,
+                link: Link{id: link_id},
+                position: index,
+                note: notes[link_id] or null
+            )
+}
+
+------------------------------------------------------------
+-- Rules: Weekly Review
+------------------------------------------------------------
+
+rule GenerateWeeklyReview {
+    when: AdminRequestsWeeklyReview(start_date?, end_date?, min_velocity?, categories?)
+    let window_end = end_date or now
+    let window_start = start_date or window_end - config.weekly_review_window
+    let min_vel = min_velocity or config.weekly_review_min_velocity
+
+    let candidate_links = Link
+        with first_seen_at >= window_start
+        and first_seen_at <= window_end
+        and velocity >= min_vel
+        and (categories = null or category.name in categories)
+
+    requires: candidate_links.count > 0
+
+    ensures: WeeklyReview.created(
+        week_of: window_start,
+        content: WeeklyReviewGenerator.generate(candidate_links),
+        status: draft,
+        byline: "Weekly Review"
+    )
+}
+
+------------------------------------------------------------
+-- Rules: Entity Management
+------------------------------------------------------------
+
+rule ApproveEntitySuggestion {
+    when: AdminApprovesEntity(suggestion)
+    requires: suggestion.status = pending
+    ensures:
+        suggestion.status = approved
+        suggestion.reviewed_at = now
+        Entity.created(
+            name: suggestion.name,
+            type: suggestion.type,
+            aliases: suggestion.aliases,
+            active: true,
+            show_in_trending: true,
+            velocity_week: 0,
+            velocity_month: 0
+        )
+}
+
+rule RejectEntitySuggestion {
+    when: AdminRejectsEntity(suggestion)
+    requires: suggestion.status = pending
+    ensures:
+        suggestion.status = rejected
+        suggestion.reviewed_at = now
+}
+
+rule BlockEntityName {
+    when: AdminBlocksEntityName(name, reason?)
+    requires: not exists EntityBlocklist{name: name}
+    ensures:
+        EntityBlocklist.created(name: name, reason: reason)
+        -- Also reject any pending suggestions with this name
+        for s in EntitySuggestion with name = name and status = pending:
+            s.status = rejected
+            s.reviewed_at = now
+}
+
+------------------------------------------------------------
+-- Rules: Watchlist Management
+------------------------------------------------------------
+
+rule CreateWatchlist {
+    when: AdminCreatesWatchlist(name, description?)
+    requires: not exists Watchlist{name: name}
+    ensures: Watchlist.created(name: name, description: description)
+}
+
+rule AddToWatchlist {
+    when: AdminAddsToWatchlist(watchlist, item_type, entity?, category?, domain?, keyword?)
+    ensures: WatchlistItem.created(
+        watchlist: watchlist,
+        item_type: item_type,
+        entity: entity,
+        category: category,
+        domain: domain,
+        keyword: keyword
+    )
+}
+
+rule CreateAlertRule {
+    when: AdminCreatesAlertRule(watchlist, name, channel, triggers)
+    ensures: AlertRule.created(
+        watchlist: watchlist,
+        name: name,
+        active: true,
+        velocity_threshold: triggers.velocity_threshold,
+        convergence_trigger: triggers.convergence_trigger,
+        new_entity_trigger: triggers.new_entity_trigger,
+        arc_beat_trigger: triggers.arc_beat_trigger,
+        channel: channel,
+        cooldown: config.alert_default_cooldown
+    )
+}
+
+------------------------------------------------------------
+-- Rules: Social Account Management
+------------------------------------------------------------
+
+rule AddSocialAccount {
+    when: AdminAddsSocialAccount(platform, handle, display_name?)
+    requires: not exists TrackedSocialAccount{platform: platform, handle: handle}
+    ensures:
+        TrackedSocialAccount.created(
+            platform: platform,
+            handle: handle,
+            display_name: display_name,
+            active: true,
+            added_at: now,
+            added_by: admin,
+            consecutive_errors: 0
+        )
+}
+
+rule DeactivateSocialAccount {
+    when: AdminDeactivatesSocialAccount(account)
+    requires: account.active
+    ensures: account.active = false
+}
+
+rule ReactivateSocialAccount {
+    when: AdminReactivatesSocialAccount(account)
+    requires: not account.active
+    ensures:
+        account.active = true
+        account.consecutive_errors = 0
+        account.last_error = null
+}
+
+------------------------------------------------------------
+-- Rules: Blacklist
+------------------------------------------------------------
+
+rule AddToBlacklist {
+    when: AdminBlacklists(pattern, type, reason?)
+    requires: not exists Blacklist{pattern: pattern}
+    ensures: Blacklist.created(pattern: pattern, type: type, reason: reason)
+}
+
+rule RemoveFromBlacklist {
+    when: AdminUnblacklists(entry)
+    ensures: not exists entry
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface TrendingDashboard {
+    for viewer: Reader
+
+    context link: Link with is_blocked = false and has_title
+
+    let vel = link.velocity
+    let sources = link.dashboard_mentions -> source
+
+    exposes:
+        link.display_title
+        link.canonical_url
+        link.domain
+        link.media_type
+        link.ai_summary
+        link.category.name
+        link.first_seen_at
+        vel
+        sources.name
+
+    related:
+        LinkDetail(link)
+        EntityDetail(entity) for entity in link.entities -> entity
+}
+
+surface LinkDetail {
+    for viewer: Reader
+
+    context link: Link
+
+    exposes:
+        link.display_title
+        link.canonical_url
+        link.domain
+        link.author
+        link.published_at
+        link.media_type
+        link.ai_summary
+        link.commentary
+        link.commentary_persona
+        link.cultural_why_now
+            when link.cultural_analyzed_at != null
+        link.cultural_tension
+            when link.cultural_analyzed_at != null
+        link.cultural_thread
+            when link.cultural_analyzed_at != null
+        link.cultural_prediction
+            when link.cultural_analyzed_at != null
+        link.cultural_contrarian
+            when link.cultural_analyzed_at != null
+        link.velocity
+        link.mentions -> source.name
+        link.category.name
+        link.subcategory.name
+        for entity in link.entities -> entity:
+            entity.name
+            entity.type
+
+    related:
+        EntityDetail(entity) for entity in link.entities -> entity
+        StoriesView(link.story_link.story) when link.story_link != null
+}
+
+surface StoriesView {
+    for viewer: Reader
+
+    context story: Story with status = active
+
+    exposes:
+        story.title
+        story.narrative
+        story.link_count
+        story.combined_velocity
+        story.first_link_at
+        story.last_link_at
+        -- Sub-stories from merges
+        for sub in story.sub_stories:
+            sub.title
+            sub.link_count
+        for sl in story.links:
+            sl.link.display_title
+            sl.link.domain
+            sl.link.canonical_url
+            sl.link.velocity
+
+    related:
+        LinkDetail(sl.link) for sl in story.links
+}
+
+surface EntityDetail {
+    for viewer: Reader
+
+    context entity: Entity with active = true
+
+    exposes:
+        entity.name
+        entity.type
+        entity.velocity_week
+        entity.velocity_month
+        entity.velocity_trend
+        for le in entity.links:
+            le.link.display_title
+            le.link.domain
+            le.link.canonical_url
+            le.link.velocity
+
+    related:
+        LinkDetail(le.link) for le in entity.links
+}
+
+surface TrendingEntities {
+    for viewer: Reader
+
+    context entity: Entity with is_trending
+
+    exposes:
+        entity.name
+        entity.type
+        entity.velocity_week
+        entity.velocity_month
+
+    related:
+        EntityDetail(entity)
+}
+
+surface AdminDashboard {
+    for admin: Admin
+
+    context link: Link
+
+    exposes:
+        link.display_title
+        link.canonical_url
+        link.domain
+        link.velocity
+        link.ai_status
+        link.enrichment_status
+        link.is_blocked
+        link.needs_manual_review
+        link.category.name
+        link.first_seen_at
+
+    provides:
+        AdminCreatesDigest(selected_link_ids, title?, notes?)
+        AdminRequestsWeeklyReview(start_date?, end_date?, min_velocity?, categories?)
+
+    related:
+        LinkDetail(link)
+        DigestDetail(digest) for digest in Digest
+        SourceManagement
+        EntityManagement
+        MergedStoriesView
+}
+
+surface SourceManagement {
+    for admin: Admin
+
+    context source: Source
+
+    exposes:
+        source.name
+        source.type
+        source.url
+        source.tier
+        source.trust_score
+        source.active
+        source.poll_frequency
+        source.include_own_links
+        source.show_on_dashboard
+        source.last_fetched_at
+        source.is_healthy
+        source.is_auto_deactivated
+        source.deactivation_reason
+        source.consecutive_errors
+        source.last_error
+
+    provides:
+        AdminUpdatesSource(source, changes)
+        AdminTriggersSourceFetch(source)
+        AdminReactivatesSource(source)
+            when source.is_auto_deactivated
+}
+
+surface EntityManagement {
+    for admin: Admin
+
+    context suggestion: EntitySuggestion with status = pending
+
+    exposes:
+        suggestion.name
+        suggestion.type
+        suggestion.aliases
+        suggestion.link_id
+
+    provides:
+        AdminApprovesEntity(suggestion)
+        AdminRejectsEntity(suggestion)
+        AdminBlocksEntityName(name, reason?)
+
+    related:
+        LinkDetail(Link{id: suggestion.link_id})
+            when suggestion.link_id != null
+}
+
+surface EntityRelationshipReview {
+    for admin: Admin
+
+    context suggestion: EntityRelationshipSuggestion with status = pending
+
+    exposes:
+        suggestion.from_entity.name
+        suggestion.from_entity.type
+        suggestion.to_entity.name
+        suggestion.to_entity.type
+        suggestion.suggested_type
+        suggestion.confidence.score
+        suggestion.confidence.reasoning
+        suggestion.source_description
+        suggestion.source_signal.display_title
+            when suggestion.source_signal != null
+
+    provides:
+        AdminApprovesRelationship(suggestion)
+        AdminRejectsRelationship(suggestion)
+
+    related:
+        EntityGraph(suggestion.from_entity)
+        EntityGraph(suggestion.to_entity)
+}
+
+surface EntityGraph {
+    for viewer: Admin
+
+    context entity: Entity
+
+    let profile = EntityProfile for entity
+    let relationships = EntityRelationship with from_entity = entity or to_entity = entity
+
+    exposes:
+        entity.name
+        entity.type
+        profile.bio
+        profile.signal_summary
+        profile.composite_velocity
+        profile.link_velocity
+        profile.social_velocity
+        profile.podcast_mentions
+        for rel in relationships:
+            rel.from_entity.name
+            rel.to_entity.name
+            rel.type
+            rel.is_current
+
+    related:
+        EntityGraph(rel.to_entity) for rel in relationships with from_entity = entity
+        EntityGraph(rel.from_entity) for rel in relationships with to_entity = entity
+}
+
+surface DigestDetail {
+    for admin: Admin
+
+    context digest: Digest
+
+    exposes:
+        digest.headline
+        digest.status
+        digest.item_count
+        for item in digest.items:
+            item.position
+            item.note
+            item.link.display_title
+            item.link.canonical_url
+            item.link.domain
+            item.link.velocity
+}
+
+surface MergedStoriesView {
+    for admin: Admin
+
+    context story: Story with status = active and sub_stories.count > 0
+
+    exposes:
+        story.title
+        story.narrative
+        story.link_count
+        story.combined_velocity
+        for sub in story.sub_stories:
+            sub.title
+            sub.merged_at
+            sub.link_count
+
+    provides:
+        AdminSplitsStory(story, link_ids_to_separate)
+
+    related:
+        StoriesView
+}
+
+surface StoryArc {
+    for viewer: Admin
+
+    context arc: NarrativeArc
+
+    exposes:
+        arc.story.title
+        arc.status
+        arc.arc_summary
+        arc.predicted_next
+        arc.prediction_confidence
+        arc.duration
+        for beat in arc.beats:
+            beat.timestamp
+            beat.beat_type
+            beat.summary
+            beat.velocity_at_beat
+            beat.velocity_delta
+
+    related:
+        LinkDetail(link) for link in arc.story.links -> link
+}
+
+surface IntelligenceBriefing {
+    for viewer: Admin
+
+    context briefing: Briefing with status = ready
+
+    exposes:
+        briefing.date
+        briefing.config.name
+        briefing.headline
+        briefing.prose
+        briefing.contrarian_take
+        for signal in briefing.top_signals:
+            signal.display_title
+            signal.url
+            signal.kind
+            signal.source_name
+        for entity in briefing.rising_entities:
+            entity.name
+            entity.type
+            entity.velocity_week
+        for conv in briefing.convergences:
+            conv.entity.name
+            conv.signal_type_count
+            conv.synthesis
+            conv.significance
+        for beat in briefing.arc_updates:
+            beat.arc.story.title
+            beat.beat_type
+            beat.summary
+
+    related:
+        EntityGraph(entity) for entity in briefing.rising_entities
+        StoryArc(beat.arc) for beat in briefing.arc_updates
+}
+
+surface WatchlistDashboard {
+    for viewer: Admin
+
+    context watchlist: Watchlist
+
+    exposes:
+        watchlist.name
+        watchlist.description
+        watchlist.item_count
+        for item in watchlist.items:
+            item.display_name
+            item.item_type
+        for alert in watchlist.active_alerts:
+            alert.trigger_type
+            alert.trigger_summary
+            alert.triggered_at
+            alert.effective_priority
+
+    provides:
+        AdminAddsToWatchlist(watchlist, item_type, entity?, category?, domain?, keyword?)
+        AdminCreatesAlertRule(watchlist, name, channel, triggers)
+
+    related:
+        EntityGraph(item.entity) for item in watchlist.items with item_type = entity
+}
+
+surface SignalTimeline {
+    for viewer: Admin
+
+    context entity: Entity
+
+    let signals = Signal with entities.any(se => se.entity = entity)
+        .sort_by(first_seen_at)
+
+    exposes:
+        entity.name
+        for signal in signals:
+            signal.kind
+            signal.display_title
+            signal.url
+            signal.source_name
+            signal.first_seen_at
+            signal.summary
+
+    guidance:
+        -- Render as a chronological timeline mixing all signal types.
+        -- Use distinct visual markers per signal kind.
+
+    related:
+        LinkDetail(signal.link) for signal in signals with kind = LinkSignal
+}
+
+surface ConvergenceView {
+    for viewer: Admin
+
+    context conv: SignalConvergence with is_true_convergence
+
+    exposes:
+        conv.entity.name
+        conv.significance
+        conv.synthesis
+        conv.signal_type_count
+        conv.detected_at
+        for signal in conv.link_signals:
+            signal.display_title
+            signal.url
+        for signal in conv.social_signals:
+            signal.display_title
+            signal.url
+        for signal in conv.podcast_signals:
+            signal.display_title
+            signal.url
+
+    related:
+        EntityGraph(conv.entity)
+        StoryArc(arc) for arc in NarrativeArc with story.links.any(
+            sl => sl.link in conv.link_signals -> link
+        )
+}
+
+surface SocialAccountManagement {
+    for admin: Admin
+
+    context account: TrackedSocialAccount
+
+    exposes:
+        account.platform
+        account.handle
+        account.display_name
+        account.active
+        account.added_at
+        account.is_healthy
+        account.consecutive_errors
+        account.last_error
+        account.last_fetched_at
+
+    provides:
+        AdminAddsSocialAccount(platform, handle, display_name?)
+        AdminDeactivatesSocialAccount(account)
+            when account.active
+        AdminReactivatesSocialAccount(account)
+            when not account.active
+}
+
+surface PodcastFeedManagement {
+    for admin: Admin
+
+    context feed: TrackedPodcastFeed
+
+    exposes:
+        feed.name
+        feed.rss_url
+        feed.active
+        feed.is_healthy
+        feed.consecutive_errors
+        feed.last_error
+        feed.last_fetched_at
+
+    provides:
+        AdminAddsPodcastFeed(name, rss_url)
+        AdminDeactivatesPodcastFeed(feed)
+            when feed.active
+        AdminReactivatesPodcastFeed(feed)
+            when not feed.active
+}
+
+surface BriefingConfigManagement {
+    for admin: Admin
+
+    context bc: BriefingConfig
+
+    exposes:
+        bc.name
+        bc.active
+        bc.include_top_signals
+        bc.include_rising_entities
+        bc.include_convergences
+        bc.include_arc_updates
+        bc.include_contrarian_take
+        bc.top_signals_count
+        bc.rising_entities_count
+        bc.voice_prompt
+        bc.prose_length
+        bc.schedule_time
+        bc.schedule_timezone
+        for channel in bc.channels:
+            channel.name
+            channel.type
+
+    provides:
+        AdminCreatesBriefingConfig(name, settings)
+        AdminUpdatesBriefingConfig(bc, changes)
+        AdminTogglesBriefingConfig(bc)
+}
+
+------------------------------------------------------------
+-- Deferred Specifications
+------------------------------------------------------------
+
+deferred Canonicalization.resolve                -- URL redirect following, normalization, caching
+deferred Enrichment.pipeline                     -- Multi-tier title extraction (oEmbed -> Mercury -> Jina -> Firecrawl -> AI -> URL)
+deferred Enrichment.is_blocked_title             -- Detect robot pages, paywalls, 404s from title text
+deferred Scoring.weighted_velocity               -- trust_score * tier_weight * time_decay per mention
+deferred Scoring.ranking_score                   -- HN-style: (velocity * weighted_velocity) / (hours + 2)^gravity
+deferred Scoring.sum_velocity                    -- Combined velocity across story links
+deferred Clustering.compute                      -- Single-linkage cosine similarity clustering
+deferred CulturalAnalysis.analyze                -- Layer 2 deep cultural context analysis via Claude
+deferred Embeddings.generate                     -- Text -> vector via embedding model
+deferred Narratives.generate                     -- AI story narrative from clustered links
+deferred WeeklyReviewGenerator.generate          -- Harper's-style prose from high-velocity links
+deferred MediaType.detect                        -- URL/domain -> article | video | podcast | ...
+deferred EntityExtractor.from_signal             -- Extract entities from any signal type
+deferred RelationshipInference.infer             -- Infer entity relationship type from co-occurrence; returns type + confidence + reasoning
+deferred EntityIntelligence.summarize            -- Generate "what's happening with X right now"
+deferred EntityIntelligence.bio                  -- Generate entity bio from accumulated signals
+deferred ArcAnalysis.classify_beat               -- Classify narrative beat type from new signals (fixed enum)
+deferred ArcAnalysis.summarize_beat              -- Generate beat summary
+deferred ArcAnalysis.update_summary              -- Regenerate arc summary after new beat
+deferred ArcAnalysis.predict_next                -- Predict what happens next in a story arc
+deferred ConvergenceAnalysis.synthesize          -- Explain why cross-signal convergence matters
+deferred ConvergenceAnalysis.assess_significance -- Rate convergence significance
+deferred AlertEvaluation.should_fire             -- Evaluate whether an alert rule should trigger
+deferred AlertEvaluation.determine_trigger_type  -- Classify what type of alert this is
+deferred AlertEvaluation.summarize_trigger       -- Generate human-readable alert summary
+deferred AlertPatternHash.compute                -- Deterministic hash of (rule + trigger_type + entity) for pattern tracking
+deferred BriefingWriter.headline                 -- Generate one-line briefing headline
+deferred BriefingWriter.prose                    -- Generate full briefing prose (accepts voice_prompt and prose_length)
+deferred BriefingWriter.contrarian               -- Generate "what everyone's missing" take
+deferred BriefingFormatter.to_slack              -- Format briefing for Slack
+deferred BriefingFormatter.to_json               -- Format briefing for webhook delivery
+deferred Summarizer.summarize                    -- Generate summary for any signal type

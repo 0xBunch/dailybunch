@@ -2,6 +2,28 @@
 
 All notable changes to Daily Bunch are documented in this file.
 
+## [1.0.1] - 2026-02-13
+
+### Added
+- **Entity management overhaul**: Server-side pagination, batch import (CSV/JSON), bulk suggestion approve/reject
+- **AI-generated story narratives**: Claude generates prose narratives for clustered story groups
+- **Trending entity filter**: Filter Stories section by trending entities
+
+### Fixed
+- **YouTube title recovery**: Detect and re-enrich links stuck with "Please update your browser" garbage titles
+- **Auto-reset garbage titles**: Cron job automatically resets blocked/garbage titles for re-enrichment
+- **Story title cleanup**: Clean and filter story titles at display time
+- **Category filter fixes**: Proper filtering in dashboard views
+- **Admin UI polish**: Hide admin link from public nav, various UI improvements
+
+### Changed
+- Archived superseded documentation (original PRD, session notes, build checklists)
+- Created `V1_SNAPSHOT.md` capturing complete v1.0 state
+- Created `V2_ROADMAP.md` summarizing the Allium spec's vision for v2.0
+- Allium behavioral specification (`spec/daily-bunch.allium`) established as single source of truth
+
+---
+
 ## [1.0.0] - 2026-01-30
 
 ### Overview

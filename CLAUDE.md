@@ -12,8 +12,10 @@ Daily Bunch is a cultural signal intelligence platform that surfaces what's trav
 - **Database**: PostgreSQL via Prisma
 - **Hosting**: Railway
 - **Email**: Resend
-- **AI**: Anthropic Claude
-- **Link Unwrapping**: Firecrawl
+- **AI (Analysis)**: Google Gemini Flash (categorization, entity extraction, summaries)
+- **AI (Cultural/Narratives)**: Anthropic Claude Sonnet (cultural analysis, story narratives)
+- **AI (Embeddings)**: Gemini text-embedding-004
+- **Enrichment**: Mercury, Jina Reader, Firecrawl (multi-tier pipeline)
 - **Styling**: Tailwind CSS v4
 
 ## Commands
@@ -34,7 +36,20 @@ src/app/api/       # API routes
 src/components/    # React components
 src/lib/           # Utilities (db, rss, canonicalize, etc.)
 prisma/            # Database schema and migrations
+spec/              # Allium behavioral specification (v2.0 source of truth)
+archive/           # Superseded docs (original PRD, session notes, build checklists)
 ```
+
+## Key Documents
+
+- `V1_SNAPSHOT.md` — what's currently built and live
+- `V2_ROADMAP.md` — where v2.0 goes, phased implementation plan
+- `spec/daily-bunch.allium` — authoritative behavioral spec (2,488 lines)
+- `CHANGELOG.md` — release history
+
+## Behavioral Spec
+
+`spec/daily-bunch.allium` is the single source of truth for what the platform should do. Read it before implementing new features or making architectural decisions. It defines entities, rules, surfaces (UI contracts), and deferred specs for areas not yet fully specified.
 
 ## Frontend Aesthetics
 
@@ -77,6 +92,9 @@ npm run build && git add -A && git commit -m "feat: description" && git push ori
 
 1. **Ingest**: RSS feeds polled on schedule, links extracted
 2. **Canonicalize**: Tracking wrappers unwrapped, URLs normalized
-3. **Score**: Velocity = how many sources linked to same article
-4. **Curate**: Dashboard shows velocity-ranked links with filters
-5. **Publish**: One-click digest via email
+3. **Enrich**: Multi-tier title extraction (Mercury → Jina → Firecrawl → AI → URL path)
+4. **Analyze**: Gemini categorizes, extracts entities, generates summaries
+5. **Embed & Cluster**: Gemini embeddings → cosine similarity → story groups
+6. **Score**: Velocity = distinct sources linking to same article, weighted by recency
+7. **Cultural**: Claude Sonnet deep-analyzes high-velocity links (v >= 3)
+8. **Surface**: Dashboard shows velocity-ranked stories and links with filters
