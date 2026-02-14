@@ -857,8 +857,8 @@ function SourceRow({
 
       {/* Name */}
       <span
-        className="flex-1 text-sm font-medium"
-        style={{ color: "#111111", minWidth: "120px" }}
+        className="text-sm font-medium truncate"
+        style={{ color: "#111111", flexGrow: 1, minWidth: 0 }}
         title={source.name}
       >
         {source.name || "(no name)"}
