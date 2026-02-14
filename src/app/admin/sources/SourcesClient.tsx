@@ -857,8 +857,8 @@ function SourceRow({
 
       {/* Name */}
       <span
-        className="flex-1 text-sm font-medium truncate"
-        style={{ minWidth: 0 }}
+        className="flex-1 text-sm font-medium truncate min-w-0"
+        style={{ color: "var(--ink)" }}
         title={source.name}
       >
         {source.name}
@@ -866,7 +866,7 @@ function SourceRow({
 
       {/* Tier */}
       <span
-        className="text-xs px-1.5 py-0.5"
+        className="text-xs px-1.5 py-0.5 shrink-0"
         style={{
           fontFamily: "var(--font-mono)",
           background:
@@ -883,11 +883,13 @@ function SourceRow({
       </span>
 
       {/* Sparkline */}
-      <Sparkline data={source.recentActivity} />
+      <div className="shrink-0">
+        <Sparkline data={source.recentActivity} />
+      </div>
 
       {/* Domain */}
       <span
-        className="text-xs w-32 truncate text-right"
+        className="text-xs w-32 truncate text-right shrink-0"
         style={{ fontFamily: "var(--font-mono)", color: "var(--muted)" }}
         title={source.baseDomain || ""}
       >
@@ -896,7 +898,7 @@ function SourceRow({
 
       {/* Status / Time */}
       <span
-        className="text-xs w-16 text-right"
+        className="text-xs w-16 text-right shrink-0"
         style={{
           fontFamily: "var(--font-mono)",
           color: hasError ? "var(--status-error)" : isQuiet ? "var(--accent-warm)" : "var(--muted)",
@@ -907,14 +909,14 @@ function SourceRow({
 
       {/* Health */}
       <span
-        className="text-xs w-6 text-center font-medium"
+        className="text-xs w-6 text-center font-medium shrink-0"
         style={{ fontFamily: "var(--font-mono)", color }}
       >
         {grade}
       </span>
 
       {/* Quick actions */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 shrink-0">
         <form action={`/api/admin/sources/${source.id}/fetch`} method="POST">
           <button
             type="submit"
