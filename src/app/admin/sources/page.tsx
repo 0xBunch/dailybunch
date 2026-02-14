@@ -1,38 +1,169 @@
 /**
  * Sources Admin Page
  *
- * Wire service feed layout - editorial control room aesthetic.
+ * Server component that fetches source data with activity metrics
+ * and renders the interactive SourcesClient.
  */
 
 import prisma from "@/lib/db";
 import Link from "next/link";
-import { DeleteSourceButton } from "@/components/DeleteSourceButton";
+import { SourcesClient } from "./SourcesClient";
 
 export const dynamic = "force-dynamic";
 
-function formatTimeAgo(date: Date | null): string {
-  if (!date) return "never";
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+// Calculate health score (0-100)
+function calculateHealthScore(source: {
+  active: boolean;
+  consecutiveErrors: number;
+  lastFetchedAt: Date | null;
+  recentItemCount: number;
+  recentMentionCount: number;
+}): number {
+  if (!source.active) return 0;
+
+  let score = 100;
+
+  // Error penalty (up to -40)
+  score -= Math.min(source.consecutiveErrors * 15, 40);
+
+  // Freshness penalty (up to -30)
+  if (source.lastFetchedAt) {
+    const hoursSinceLastFetch = (Date.now() - source.lastFetchedAt.getTime()) / (1000 * 60 * 60);
+    if (hoursSinceLastFetch > 24) score -= 10;
+    if (hoursSinceLastFetch > 72) score -= 10;
+    if (hoursSinceLastFetch > 168) score -= 10;
+  } else {
+    score -= 30;
+  }
+
+  // Activity bonus (up to +10) or penalty (up to -20)
+  if (source.recentItemCount === 0 && source.recentMentionCount === 0) {
+    score -= 20;
+  } else if (source.recentMentionCount > 10) {
+    score += 10;
+  }
+
+  return Math.max(0, Math.min(100, score));
 }
 
 export default async function SourcesAdminPage() {
+  // Get date ranges for activity calculation
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  // Fetch sources with counts
   const sources = await prisma.source.findMany({
     orderBy: [{ active: "desc" }, { name: "asc" }],
     include: {
       category: true,
-      _count: { select: { mentions: true, sourceItems: true } },
+      categories: {
+        include: {
+          category: true,
+        },
+      },
+      _count: {
+        select: { mentions: true, sourceItems: true },
+      },
     },
   });
 
-  const activeCount = sources.filter((s) => s.active).length;
-  const errorCount = sources.filter((s) => s.consecutiveErrors >= 3).length;
+  // Fetch categories
+  const categories = await prisma.category.findMany({
+    orderBy: { name: "asc" },
+  });
+
+  // Fetch recent sourceItems for activity sparklines
+  const recentItems = await prisma.sourceItem.findMany({
+    where: {
+      createdAt: { gte: sevenDaysAgo },
+    },
+    select: {
+      sourceId: true,
+      createdAt: true,
+    },
+  });
+
+  // Group items by source and day
+  const activityBySource = new Map<string, number[]>();
+  for (const source of sources) {
+    activityBySource.set(source.id, [0, 0, 0, 0, 0, 0, 0]);
+  }
+
+  for (const item of recentItems) {
+    const dayIndex = Math.floor((now.getTime() - item.createdAt.getTime()) / (24 * 60 * 60 * 1000));
+    if (dayIndex >= 0 && dayIndex < 7) {
+      const activity = activityBySource.get(item.sourceId);
+      if (activity) {
+        activity[6 - dayIndex]++; // Reverse so most recent is last
+      }
+    }
+  }
+
+  // Fetch recent mention counts for health scoring
+  const recentMentions = await prisma.mention.groupBy({
+    by: ["sourceId"],
+    where: {
+      seenAt: { gte: sevenDaysAgo },
+    },
+    _count: true,
+  });
+
+  const mentionCountBySource = new Map<string, number>();
+  for (const m of recentMentions) {
+    mentionCountBySource.set(m.sourceId, m._count);
+  }
+
+  // Process sources with activity and health
+  const processedSources = sources.map((source) => {
+    const recentActivity = activityBySource.get(source.id) || [0, 0, 0, 0, 0, 0, 0];
+    const recentItemCount = recentActivity.reduce((a, b) => a + b, 0);
+    const recentMentionCount = mentionCountBySource.get(source.id) || 0;
+
+    const healthScore = calculateHealthScore({
+      active: source.active,
+      consecutiveErrors: source.consecutiveErrors,
+      lastFetchedAt: source.lastFetchedAt,
+      recentItemCount,
+      recentMentionCount,
+    });
+
+    return {
+      id: source.id,
+      name: source.name,
+      type: source.type,
+      url: source.url,
+      baseDomain: source.baseDomain,
+      active: source.active,
+      tier: source.tier,
+      pollFrequency: source.pollFrequency,
+      showOnDashboard: source.showOnDashboard,
+      includeOwnLinks: source.includeOwnLinks,
+      lastFetchedAt: source.lastFetchedAt?.toISOString() || null,
+      lastError: source.lastError,
+      consecutiveErrors: source.consecutiveErrors,
+      tags: source.tags,
+      categoryId: source.categoryId,
+      category: source.category,
+      categories: source.categories.map((sc) => ({
+        id: sc.id,
+        categoryId: sc.categoryId,
+        category: sc.category,
+      })),
+      _count: source._count,
+      recentActivity,
+      healthScore,
+    };
+  });
+
+  // Calculate stats
+  const stats = {
+    total: sources.length,
+    active: sources.filter((s) => s.active).length,
+    errors: sources.filter((s) => s.consecutiveErrors >= 3).length,
+    quiet: processedSources.filter(
+      (s) => s.active && s.recentActivity.reduce((a, b) => a + b, 0) === 0
+    ).length,
+  };
 
   return (
     <div className="min-h-dvh" style={{ background: "var(--surface-cream)" }}>
@@ -70,501 +201,16 @@ export default async function SourcesAdminPage() {
             >
               Admin
             </Link>
+            <span style={{ color: "var(--ink)", fontWeight: 500 }}>Sources</span>
           </nav>
         </div>
       </header>
 
-      {/* Stats Bar */}
-      <div
-        className="border-b px-6 py-3"
-        style={{ borderColor: "var(--border)", background: "var(--ink)" }}
-      >
-        <div className="max-w-4xl mx-auto flex items-center gap-8">
-          <div className="flex items-center gap-2">
-            <span
-              className="text-2xl font-medium tabular-nums"
-              style={{ fontFamily: "var(--font-mono)", color: "#fff" }}
-            >
-              {activeCount}
-            </span>
-            <span className="text-xs uppercase tracking-wide" style={{ color: "#888" }}>
-              Active
-            </span>
-          </div>
-          <div className="w-px h-6" style={{ background: "rgba(255,255,255,0.2)" }} />
-          <div className="flex items-center gap-2">
-            <span
-              className="text-2xl font-medium tabular-nums"
-              style={{ fontFamily: "var(--font-mono)", color: "#fff" }}
-            >
-              {sources.length}
-            </span>
-            <span className="text-xs uppercase tracking-wide" style={{ color: "#888" }}>
-              Total
-            </span>
-          </div>
-          {errorCount > 0 && (
-            <>
-              <div className="w-px h-6" style={{ background: "rgba(255,255,255,0.2)" }} />
-              <div className="flex items-center gap-2">
-                <span
-                  className="text-2xl font-medium tabular-nums"
-                  style={{ fontFamily: "var(--font-mono)", color: "var(--status-error)" }}
-                >
-                  {errorCount}
-                </span>
-                <span className="text-xs uppercase tracking-wide" style={{ color: "#888" }}>
-                  Errors
-                </span>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        {/* Add Source Form */}
-        <div
-          className="border mb-8 p-6"
-          style={{ borderColor: "var(--border)", background: "#fff" }}
-        >
-          <h3
-            className="text-xs uppercase tracking-wide mb-6"
-            style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-          >
-            Add Source
-          </h3>
-          <form action="/api/admin/sources" method="POST">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label
-                  htmlFor="name"
-                  className="block text-xs uppercase tracking-wide mb-2"
-                  style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-                >
-                  Name
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  required
-                  placeholder="Stratechery"
-                  className="w-full px-3 py-2 text-sm"
-                  style={{
-                    border: "1px solid var(--border)",
-                    background: "var(--surface-cream)",
-                  }}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="url"
-                  className="block text-xs uppercase tracking-wide mb-2"
-                  style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-                >
-                  RSS Feed URL
-                </label>
-                <input
-                  type="url"
-                  id="url"
-                  name="url"
-                  required
-                  placeholder="https://example.com/feed.xml"
-                  className="w-full px-3 py-2 text-sm"
-                  style={{
-                    border: "1px solid var(--border)",
-                    background: "var(--surface-cream)",
-                  }}
-                />
-              </div>
-            </div>
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 text-sm" style={{ color: "var(--muted)" }}>
-                  <input
-                    type="checkbox"
-                    name="includeOwnLinks"
-                    value="true"
-                    className="size-4"
-                  />
-                  Include source&apos;s own links
-                </label>
-                <label className="flex items-center gap-2 text-sm" style={{ color: "var(--muted)" }}>
-                  <span>Poll:</span>
-                  <select
-                    name="pollFrequency"
-                    defaultValue="realtime"
-                    className="text-sm px-2 py-1"
-                    style={{
-                      border: "1px solid var(--border)",
-                      background: "var(--surface-cream)",
-                    }}
-                  >
-                    <option value="realtime">15min</option>
-                    <option value="hourly">Hourly</option>
-                    <option value="daily">Daily</option>
-                  </select>
-                </label>
-              </div>
-              <button
-                type="submit"
-                className="px-4 py-2 text-sm transition-opacity hover:opacity-80"
-                style={{
-                  background: "var(--ink)",
-                  color: "#fff",
-                  border: "none",
-                }}
-              >
-                Add Source
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Legend */}
-        <div
-          className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs"
-          style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-        >
-          <span>
-            <strong>Dashboard:</strong> Show on trending
-          </span>
-          <span>
-            <strong>Own Links:</strong> Include self-referential links
-          </span>
-          <span>
-            <strong>Tier:</strong> T1=Major Pubs, T2=Top Newsletters, T3=Quality Blogs, T4=Aggregators
-          </span>
-          <span>
-            <strong>Poll:</strong> 15min=Realtime, Hourly, Daily
-          </span>
-        </div>
-
-        {/* Source Feed */}
-        <div className="space-y-2">
-          {sources.map((source) => {
-            const hasError = source.consecutiveErrors >= 3;
-            const borderColor = hasError
-              ? "var(--status-error)"
-              : source.active
-                ? "var(--status-success)"
-                : "var(--border)";
-
-            return (
-              <div
-                key={source.id}
-                className="border-l-4 bg-white"
-                style={{
-                  borderLeftColor: borderColor,
-                  borderTop: "1px solid var(--border)",
-                  borderRight: "1px solid var(--border)",
-                  borderBottom: "1px solid var(--border)",
-                }}
-              >
-                <div className="p-4">
-                  {/* Top Row: Name + Status */}
-                  <div className="flex items-start justify-between mb-2">
-                    <h3
-                      className="text-base font-medium"
-                      style={{ color: "var(--ink)", letterSpacing: "0.02em" }}
-                    >
-                      {source.name}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      {source.active ? (
-                        <span
-                          className="text-xs px-2 py-0.5"
-                          style={{
-                            background: "var(--status-success)",
-                            color: "#fff",
-                            fontFamily: "var(--font-mono)",
-                          }}
-                        >
-                          ACTIVE
-                        </span>
-                      ) : (
-                        <span
-                          className="text-xs px-2 py-0.5"
-                          style={{
-                            background: "var(--muted)",
-                            color: "#fff",
-                            fontFamily: "var(--font-mono)",
-                          }}
-                        >
-                          INACTIVE
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Meta Row */}
-                  <p
-                    className="text-sm mb-2"
-                    style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-                  >
-                    {source.type.toUpperCase()}
-                    <span style={{ opacity: 0.5 }}> · </span>
-                    {source._count.sourceItems} items
-                    <span style={{ opacity: 0.5 }}> · </span>
-                    {source._count.mentions} mentions
-                    {source.category && (
-                      <>
-                        <span style={{ opacity: 0.5 }}> · </span>
-                        {source.category.name}
-                      </>
-                    )}
-                    <span style={{ opacity: 0.5 }}> · </span>
-                    <span
-                      style={{
-                        color:
-                          source.tier === "TIER_1"
-                            ? "var(--accent-warm)"
-                            : source.tier === "TIER_2"
-                              ? "var(--status-success)"
-                              : "inherit",
-                      }}
-                    >
-                      {source.tier?.replace("_", " ") || "TIER 3"}
-                    </span>
-                    <span style={{ opacity: 0.5 }}> · </span>
-                    last {formatTimeAgo(source.lastFetchedAt)}
-                  </p>
-
-                  {/* URL */}
-                  {source.url && (
-                    <p
-                      className="text-xs truncate mb-3"
-                      style={{ color: "var(--status-muted)", fontFamily: "var(--font-mono)" }}
-                    >
-                      {source.url}
-                    </p>
-                  )}
-
-                  {/* Error */}
-                  {source.lastError && (
-                    <p
-                      className="text-xs mb-3 p-2"
-                      style={{
-                        color: "var(--status-error)",
-                        background: "rgba(166, 84, 84, 0.1)",
-                        fontFamily: "var(--font-mono)",
-                      }}
-                    >
-                      {source.lastError}
-                    </p>
-                  )}
-
-                  {/* Controls */}
-                  <div className="flex items-center gap-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-                    <form action={`/api/admin/sources/${source.id}`} method="POST">
-                      <input
-                        type="hidden"
-                        name="showOnDashboard"
-                        value={source.showOnDashboard ? "false" : "true"}
-                      />
-                      <button
-                        type="submit"
-                        className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: source.showOnDashboard
-                            ? "var(--accent-warm)"
-                            : "var(--surface-cream)",
-                          color: source.showOnDashboard ? "#fff" : "var(--muted)",
-                          border: source.showOnDashboard
-                            ? "1px solid var(--accent-warm)"
-                            : "1px solid var(--border)",
-                        }}
-                      >
-                        Dashboard {source.showOnDashboard ? "ON" : "OFF"}
-                      </button>
-                    </form>
-                    <form action={`/api/admin/sources/${source.id}`} method="POST">
-                      <input
-                        type="hidden"
-                        name="includeOwnLinks"
-                        value={source.includeOwnLinks ? "false" : "true"}
-                      />
-                      <button
-                        type="submit"
-                        className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: source.includeOwnLinks
-                            ? "var(--status-success)"
-                            : "var(--surface-cream)",
-                          color: source.includeOwnLinks ? "#fff" : "var(--muted)",
-                          border: source.includeOwnLinks
-                            ? "1px solid var(--status-success)"
-                            : "1px solid var(--border)",
-                        }}
-                      >
-                        Own Links {source.includeOwnLinks ? "ON" : "OFF"}
-                      </button>
-                    </form>
-                    <form action={`/api/admin/sources/${source.id}`} method="POST" className="flex items-center gap-1">
-                      <select
-                        name="tier"
-                        defaultValue={source.tier}
-                        className="text-xs px-2 py-1"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: "var(--surface-cream)",
-                          border: "1px solid var(--border)",
-                          color: "var(--ink)",
-                        }}
-                      >
-                        <option value="TIER_1">T1 (10)</option>
-                        <option value="TIER_2">T2 (7)</option>
-                        <option value="TIER_3">T3 (5)</option>
-                        <option value="TIER_4">T4 (2)</option>
-                      </select>
-                      <button
-                        type="submit"
-                        className="text-xs px-2 py-1 transition-opacity hover:opacity-80"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: "var(--ink)",
-                          color: "#fff",
-                          border: "none",
-                        }}
-                      >
-                        Set
-                      </button>
-                    </form>
-                    <form action={`/api/admin/sources/${source.id}`} method="POST" className="flex items-center gap-1">
-                      <select
-                        name="pollFrequency"
-                        defaultValue={source.pollFrequency}
-                        className="text-xs px-2 py-1"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: "var(--surface-cream)",
-                          border: "1px solid var(--border)",
-                          color: "var(--ink)",
-                        }}
-                      >
-                        <option value="realtime">15min</option>
-                        <option value="hourly">Hourly</option>
-                        <option value="daily">Daily</option>
-                      </select>
-                      <button
-                        type="submit"
-                        className="text-xs px-2 py-1 transition-opacity hover:opacity-80"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: "var(--ink)",
-                          color: "#fff",
-                          border: "none",
-                        }}
-                      >
-                        Set
-                      </button>
-                    </form>
-                    {source.type === "rss" && source.url && (
-                      <form action={`/api/admin/sources/${source.id}/fetch`} method="POST">
-                        <button
-                          type="submit"
-                          className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
-                          style={{
-                            fontFamily: "var(--font-mono)",
-                            background: "var(--ink)",
-                            color: "#fff",
-                            border: "1px solid var(--ink)",
-                          }}
-                        >
-                          Fetch Now
-                        </button>
-                      </form>
-                    )}
-                    <form action={`/api/admin/sources/${source.id}`} method="POST" className="ml-auto">
-                      <input type="hidden" name="active" value={source.active ? "false" : "true"} />
-                      <button
-                        type="submit"
-                        className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: "transparent",
-                          color: source.active ? "var(--status-error)" : "var(--status-success)",
-                          border: "1px solid currentColor",
-                        }}
-                      >
-                        {source.active ? "Deactivate" : "Activate"}
-                      </button>
-                    </form>
-                    <DeleteSourceButton
-                      sourceId={source.id}
-                      sourceName={source.name}
-                      mentionCount={source._count.mentions}
-                    />
-                  </div>
-
-                  {/* Internal Domains */}
-                  <details className="mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
-                    <summary
-                      className="text-xs cursor-pointer select-none"
-                      style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-                    >
-                      Internal Domains ({source.internalDomains?.length || 0})
-                      {source.baseDomain && (
-                        <span style={{ opacity: 0.6 }}> · base: {source.baseDomain}</span>
-                      )}
-                    </summary>
-                    <form
-                      action={`/api/admin/sources/${source.id}`}
-                      method="POST"
-                      className="mt-3"
-                    >
-                      <label
-                        className="block text-xs mb-2"
-                        style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-                      >
-                        Additional domains to treat as internal (one per line):
-                      </label>
-                      <textarea
-                        name="internalDomains"
-                        rows={3}
-                        defaultValue={source.internalDomains?.join("\n") || ""}
-                        placeholder="passport.online&#10;stratechery.network"
-                        className="w-full px-2 py-1 text-xs mb-2"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          border: "1px solid var(--border)",
-                          background: "var(--surface-cream)",
-                          resize: "vertical",
-                        }}
-                      />
-                      <button
-                        type="submit"
-                        className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: "var(--ink)",
-                          color: "#fff",
-                          border: "none",
-                        }}
-                      >
-                        Save Domains
-                      </button>
-                    </form>
-                  </details>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {sources.length === 0 && (
-          <div
-            className="text-center py-12"
-            style={{ color: "var(--muted)" }}
-          >
-            <p className="mb-2">No sources configured.</p>
-            <p className="text-sm">Add your first RSS feed above.</p>
-          </div>
-        )}
-      </main>
+      <SourcesClient
+        sources={processedSources}
+        categories={categories}
+        stats={stats}
+      />
     </div>
   );
 }

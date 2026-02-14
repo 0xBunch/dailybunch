@@ -19,7 +19,8 @@ model Category {
 
   subcategories Subcategory[]
   links         Link[]
-  sources       Source[]
+  sources       Source[]           // Legacy: single-category relation
+  sourceCategories SourceCategory[] // New: multi-category relation
 }
 
 model Subcategory {
@@ -46,7 +47,7 @@ model Source {
   type          String    // "newsletter" | "rss"
   url           String?   // RSS feed URL or newsletter domain
   emailTrigger  String?   // Domain to match incoming emails
-  categoryId    String?
+  categoryId    String?   // DEPRECATED: Use categories relation instead
   active        Boolean   @default(true)
   lastFetchedAt DateTime?
   pollFrequency String    @default("realtime") // "realtime" (15min) | "hourly" | "daily"
@@ -68,7 +69,11 @@ model Source {
   baseDomain         String?   // Extracted from URL (e.g., "stratechery.com"), used to filter self-links
   internalDomains    String[]  @default([]) // Additional domains to treat as internal (e.g., ["passport.online"])
 
-  category      Category?    @relation(fields: [categoryId], references: [id])
+  // Multi-category and tagging
+  tags               String[]  @default([]) // Free-form tags (e.g., "newsletters", "aggregator", "long-form")
+
+  category      Category?        @relation(fields: [categoryId], references: [id])
+  categories    SourceCategory[] // Many-to-many: a source can belong to multiple categories
   mentions      Mention[]
   sourceItems   SourceItem[]
 
@@ -95,6 +100,21 @@ model SourceItem {
   @@index([sourceId])
   @@index([pubDate])
   @@index([createdAt])
+}
+
+// Many-to-many: Sources can belong to multiple categories
+model SourceCategory {
+  id         String   @id @default(cuid())
+  sourceId   String
+  categoryId String
+  createdAt  DateTime @default(now())
+
+  source     Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, categoryId])
+  @@index([sourceId])
+  @@index([categoryId])
 }
 
 // ============================================
@@ -153,6 +173,11 @@ model Link {
   isBlocked         Boolean   @default(false)
   blockedReason     String?   // robot | paywall | 404 | access_denied
 
+  // Newsroom curation flags
+  promoted          Boolean   @default(false)  // Marked for public site promotion
+  hidden            Boolean   @default(false)  // Hidden from public site
+  annotation        String?   @db.Text         // Editor's note
+
   // Enrichment tracking (multi-tier title extraction)
   enrichmentStatus      String    @default("pending") // pending | processing | success | fallback | failed
   enrichmentRetryCount  Int       @default(0)
@@ -189,6 +214,8 @@ model Link {
   @@index([enrichmentLastAttempt])
   @@index([isBlocked])
   @@index([mediaType])
+  @@index([promoted])
+  @@index([hidden])
 }
 
 model Mention {
