@@ -403,61 +403,67 @@ export function NewsroomClient({ links, categories, sources, entities }: Props) 
                   borderLeft: isHot ? "3px solid var(--accent-warm)" : "3px solid transparent",
                   background: isSelected ? "rgba(0,0,0,0.02)" : "transparent",
                   opacity: link.hidden ? 0.5 : 1,
+                  display: "grid",
+                  gridTemplateColumns: "20px 32px 1fr",
+                  gap: "8px",
+                  alignItems: "start",
                 }}
                 onClick={() => setDetailLink(link)}
               >
-                {/* Row 1: Checkbox + Velocity + Title */}
-                <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      toggleSelect(link.id);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-1"
-                  />
-                  <span
-                    className="text-xs px-1.5 py-0.5 shrink-0"
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      background: isHot ? "var(--accent-warm)" : "var(--surface-cream)",
-                      color: isHot ? "#fff" : "var(--muted)",
-                    }}
-                  >
-                    {link.velocity}
-                  </span>
-                  <span
+                {/* Column 1: Checkbox */}
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    toggleSelect(link.id);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ marginTop: "4px" }}
+                />
+
+                {/* Column 2: Velocity Badge */}
+                <span
+                  className="text-xs px-1.5 py-0.5 text-center"
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    background: isHot ? "var(--accent-warm)" : "var(--surface-cream)",
+                    color: isHot ? "#fff" : "var(--muted)",
+                  }}
+                >
+                  {link.velocity}
+                </span>
+
+                {/* Column 3: Title + Meta */}
+                <div>
+                  <div
                     className="text-sm leading-snug line-clamp-1"
                     style={{ color: "var(--ink)" }}
                   >
                     {link.title || link.canonicalUrl}
-                  </span>
-                </div>
-
-                {/* Row 2: Meta */}
-                <div
-                  className="mt-1 ml-14 text-xs flex items-center gap-2"
-                  style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-                >
-                  <span>{link.domain}</span>
-                  {link.category && (
-                    <>
-                      <span style={{ opacity: 0.5 }}>·</span>
-                      <span>{link.category.name}</span>
-                    </>
-                  )}
-                  <span style={{ opacity: 0.5 }}>·</span>
-                  <span>{link.mentions.length} sources</span>
-                  <span style={{ opacity: 0.5 }}>·</span>
-                  <span>{formatTimeAgo(link.firstSeenAt)}</span>
-                  {link.promoted && (
-                    <>
-                      <span style={{ opacity: 0.5 }}>·</span>
-                      <span style={{ color: "var(--accent-warm)" }}>PROMOTED</span>
-                    </>
-                  )}
+                  </div>
+                  <div
+                    className="mt-1 text-xs flex items-center gap-2"
+                    style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
+                  >
+                    <span>{link.domain}</span>
+                    {link.category && (
+                      <>
+                        <span style={{ opacity: 0.5 }}>·</span>
+                        <span>{link.category.name}</span>
+                      </>
+                    )}
+                    <span style={{ opacity: 0.5 }}>·</span>
+                    <span>{link.mentions.length} sources</span>
+                    <span style={{ opacity: 0.5 }}>·</span>
+                    <span>{formatTimeAgo(link.firstSeenAt)}</span>
+                    {link.promoted && (
+                      <>
+                        <span style={{ opacity: 0.5 }}>·</span>
+                        <span style={{ color: "var(--accent-warm)" }}>PROMOTED</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             );
