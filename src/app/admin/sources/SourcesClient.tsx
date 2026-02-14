@@ -857,11 +857,11 @@ function SourceRow({
 
       {/* Name */}
       <span
-        className="flex-1 text-sm font-medium truncate min-w-0"
-        style={{ color: "var(--ink)" }}
+        className="flex-1 text-sm font-medium min-w-[120px]"
+        style={{ color: "#111111" }}
         title={source.name}
       >
-        {source.name}
+        {source.name || "(no name)"}
       </span>
 
       {/* Tier */}
