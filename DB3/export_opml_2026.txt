@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+<head>
+ <title>My feeds</title>
+</head>
+<body>
+<outline text="Feeds" title="Feeds">
+ <outline title="kottke.org" category="Page 1,Culture" type="rss" xmlUrl="http://feeds.kottke.org/main" />
+ <outline title="HODINKEE" type="rss" xmlUrl="https://www.hodinkee.com/articles/rss.xml" />
+ <outline title="Hyperallergic" type="rss" xmlUrl="https://hyperallergic.com/feed/" />
+ <outline title="On my Om" type="rss" xmlUrl="https://om.co/feed/" />
+ <outline title="Eater LA - All" category="LA,Jetset" type="rss" xmlUrl="https://la.eater.com/rss/index.xml" />
+ <outline title="n+1" type="rss" xmlUrl="https://www.nplusonemag.com/feed/" />
+ <outline title="Nieman Lab" type="rss" xmlUrl="https://feeds.feedburner.com/NiemanJournalismLab" />
+ <outline title="McSweeney’s" category="Page 1,Creativity" type="rss" xmlUrl="https://feeds.feedburner.com/mcsweeneys" />
+ <outline title="OpenAI" category="Page 1,AI,Future" type="rss" xmlUrl="https://openai.com/blog/rss/" />
+ <outline title="Boing Boing" category="Culture" type="rss" xmlUrl="https://boingboing.net/feed" />
+ <outline title="Tedium: The Dull Side of the Internet." type="rss" xmlUrl="https://feed.tedium.co/" />
+ <outline title="A16Z" type="rss" xmlUrl="https://a16z.com/feed/" />
+ <outline title="NYT > Business > DealBook" category="Business" type="rss" xmlUrl="https://rss.nytimes.com/services/xml/rss/nyt/Dealbook.xml" />
+ <outline title="Nautilus" type="rss" xmlUrl="https://nautil.us/feed/" />
+ <outline title="It's Nice That" category="Creativity" type="rss" xmlUrl="http://feeds2.feedburner.com/itsnicethat/SlXC" />
+ <outline title="Big Think" category="Page 1,Creativity" type="rss" xmlUrl="http://bigthink.com/feed/all" />
+ <outline title="Food52" category="Food" type="rss" xmlUrl="https://food52.com/blog.rss" />
+ <outline title="ArchDaily" category="Architecture" type="rss" xmlUrl="http://feeds.feedburner.com/Archdaily" />
+ <outline title="The Points Guy" category="Jetset" type="rss" xmlUrl="https://thepointsguy.com/feed/" />
+ <outline title="Techmeme" category="Business" type="rss" xmlUrl="https://www.techmeme.com/feed.xml" />
+ <outline title="Gigaom" type="rss" xmlUrl="https://gigaom.com/feed/" />
+ <outline title="Eater - All" category="Food" type="rss" xmlUrl="https://www.eater.com/rss/index.xml" />
+ <outline title="Creative Boom" category="Creativity" type="rss" xmlUrl="https://www.creativeboom.com/feed/" />
+ <outline title="A Collection of Unmitigated Pedantry" type="rss" xmlUrl="https://acoup.blog/feed/" />
+ <outline title="The A.V. Club" category="Culture" type="rss" xmlUrl="https://www.avclub.com/rss" />
+ <outline title="Laughing Squid" category="Creativity" type="rss" xmlUrl="https://laughingsquid.com/feed/" />
+ <outline title="VentureBeat" category="Business" type="rss" xmlUrl="https://feeds.feedburner.com/venturebeat/SZYF" />
+ <outline title="Noah Brier" category="Page 1" type="rss" xmlUrl="http://feeds.feedburner.com/noahbriercom" />
+ <outline title="CultureBy – Grant McCracken" category="Page 1,Culture" type="rss" xmlUrl="https://cultureby.com/feed" />
+ <outline title="Robb Report" type="rss" xmlUrl="https://robbreport.com/feed/" />
+ <outline title="Typewolf" category="Creativity" type="rss" xmlUrl="https://www.typewolf.com/feed" />
+ <outline title="Whatever" type="rss" xmlUrl="https://whatever.scalzi.com/feed/" />
+ <outline title="The Spaces" category="Architecture" type="rss" xmlUrl="https://thespaces.com/feed/" />
+ <outline title="Eater - All" type="rss" xmlUrl="https://eater.com/rss/index.xml" />
+ <outline title="Know Your Meme Newsfeed" type="rss" xmlUrl="https://knowyourmeme.com/newsfeed.rss" />
+ <outline title="Eater Austin" category="Austin" type="rss" xmlUrl="https://austin.eater.com/rss/index.xml" />
+ <outline title="The Architect’s Newspaper" category="Architecture" type="rss" xmlUrl="https://www.archpaper.com/feed/" />
+ <outline title="A Continuous Lean." type="rss" xmlUrl="https://www.acontinuouslean.com/feed/" />
+ <outline title="BBC News - World" type="rss" xmlUrl="http://feeds.bbci.co.uk/news/world/rss.xml" />
+ <outline title="The Paris Review" category="Culture" type="rss" xmlUrl="http://blog.theparisreview.org/feed" />
+ <outline title="Skift" type="rss" xmlUrl="https://skift.com/feed" />
+ <outline title="MIT Technology Review" category="Future" type="rss" xmlUrl="https://www.technologyreview.com/feed" />
+ <outline title="Wikipedia picture of the day feed" type="rss" xmlUrl="https://en.m.wikipedia.org/w/api.php?action=featuredfeed&feed=potd&feedformat=atom" />
+ <outline title="Highsnobiety" type="rss" xmlUrl="https://www.highsnobiety.com/feed" />
+ <outline title="Sportico.com" type="rss" xmlUrl="https://sportico.com/feed" />
+ <outline title="Mark Manson" category="Page 1" type="rss" xmlUrl="https://markmanson.net/feed" />
+ <outline title="Song Exploder" category="Music" type="rss" xmlUrl="https://songexploder.net/feed" />
+ <outline title="Wired - AI" category="AI,AI" type="rss" xmlUrl="https://www.wired.com/feed/tag/ai/latest/rss" />
+ <outline title="Wired - Science" type="rss" xmlUrl="https://www.wired.com/feed/category/science/latest/rss" />
+ <outline title="Backchannel Latest" category="Future" type="rss" xmlUrl="https://www.wired.com/feed/category/backchannel/latest/rss" />
+ <outline title="Business Latest" category="Business" type="rss" xmlUrl="https://www.wired.com/feed/category/business/latest/rss" />
+ <outline title="HBR.org" category="Business" type="rss" xmlUrl="http://feeds.hbr.org/harvardbusiness" />
+ <outline title="The Economist - U.S." type="rss" xmlUrl="https://www.economist.com/united-states/rss.xml" />
+ <outline title="The Economist - Business" category="Business" type="rss" xmlUrl="https://www.economist.com/business/rss.xml" />
+ <outline title="The world this week" type="rss" xmlUrl="https://www.economist.com/the-world-this-week/rss.xml" />
+ <outline title="The Economist - Science & Tech" category="Future" type="rss" xmlUrl="https://www.economist.com/science-and-technology/rss.xml" />
+ <outline title="The Art of Manliness" type="rss" xmlUrl="https://www.artofmanliness.com/feed/" />
+ <outline title="Aeon" category="Page 1,Creativity" type="rss" xmlUrl="https://aeon.co/feed.rss" />
+ <outline title="Pluralistic: Daily links from Cory Doctorow" category="Page 1,Culture" type="rss" xmlUrl="https://pluralistic.net/feed/" />
+ <outline title="MetaFilter" category="Page 1" type="rss" xmlUrl="http://feeds.feedburner.com/Metafilter" />
+ <outline title="Marginal Revolution" category="Page 1" type="rss" xmlUrl="https://feeds.feedblitz.com/marginalrevolution&x=1" />
+ <outline title="www.espn.com - NCF" category="Sports" type="rss" xmlUrl="https://www.espn.com/espn/rss/ncf/news" />
+ <outline title="McKinsey Insights & Publications" type="rss" xmlUrl="http://rss.mckinseyquarterly.com/f/100001s241jmqo4em7g.rss" />
+ <outline title="Pitchfork - Best New Albums" category="Music" type="rss" xmlUrl="https://pitchfork.com/rss/reviews/best/albums/" />
+ <outline title="www.espn.com - MLB" category="Sports" type="rss" xmlUrl="https://www.espn.com/espn/rss/mlb/news" />
+ <outline title="WSJ.com: World News" type="rss" xmlUrl="https://feeds.a.dj.com/rss/RSSWorldNews.xml" />
+ <outline title="Pitchfork - Best New Tracks" category="Music" type="rss" xmlUrl="https://pitchfork.com/rss/reviews/best/tracks/" />
+ <outline title="Wirecutter: Reviews for the Real World" type="rss" xmlUrl="https://www.nytimes.com/wirecutter/feed/" />
+ <outline title="News and Analysis from the Worlds of Business,Science,and Tech" type="rss" xmlUrl="https://www.newyorker.com/feed/tech" />
+ <outline title="The New Yorker - Culture" category="Culture" type="rss" xmlUrl="https://www.newyorker.com/feed/culture" />
+ <outline title="NYT > Arts > Music" category="Music" type="rss" xmlUrl="http://rss.nytimes.com/services/xml/rss/nyt/Music.xml" />
+ <outline title="NYT > Travel" category="Jetset" type="rss" xmlUrl="https://rss.nytimes.com/services/xml/rss/nyt/Travel.xml" />
+ <outline title="NYT > T Magazine" type="rss" xmlUrl="https://rss.nytimes.com/services/xml/rss/nyt/tmagazine.xml" />
+ <outline title="NYT > Technology" category="Future" type="rss" xmlUrl="https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml" />
+ <outline title="NYT > Arts" category="Culture" type="rss" xmlUrl="https://rss.nytimes.com/services/xml/rss/nyt/Arts.xml" />
+ <outline title="NYT > Science" type="rss" xmlUrl="https://rss.nytimes.com/services/xml/rss/nyt/Science.xml" />
+ <outline title="WSJ.com: US Business" category="Business" type="rss" xmlUrl="https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml" />
+ <outline title="The Ringer - NBA" category="Sports" type="rss" xmlUrl="https://www.theringer.com/rss/nba/index.xml" />
+ <outline title="Scientific American" type="rss" xmlUrl="http://rss.sciam.com/ScientificAmerican-Global" />
+ <outline title="Know Your Meme Entries - Confirmed" category="Page 1,Culture" type="rss" xmlUrl="http://knowyourmeme.com/memes.rss" />
+ <outline title="WSJ.com: WSJD" category="Future" type="rss" xmlUrl="https://feeds.a.dj.com/rss/RSSWSJD.xml" />
+ <outline title="The Baffler" type="rss" xmlUrl="https://thebaffler.com/feed" />
+ <outline title="Spanish Property Insight" category="Jetset" type="rss" xmlUrl="https://www.spanishpropertyinsight.com/feed/" />
+ <outline title="NYT - Art & Design" category="Creativity" type="rss" xmlUrl="https://rss.nytimes.com/services/xml/rss/nyt/ArtandDesign.xml" />
+ <outline title="Identity Designed" category="Creativity" type="rss" xmlUrl="https://identitydesigned.com/feed/" />
+ <outline title="Food" category="LA,Jetset,Food" type="rss" xmlUrl="https://www.latimes.com/food/rss2.0.xml" />
+ <outline title="Science & Medicine" type="rss" xmlUrl="https://www.latimes.com/science/rss2.0.xml" />
+ <outline title="PLAIN Magazine" category="Creativity" type="rss" xmlUrl="https://plainmagazine.com/feed/" />
+ <outline title="designboom | architecture & design magazine" category="Architecture" type="rss" xmlUrl="https://www.designboom.com/feed/" />
+ <outline title="GQ" category="Culture" type="rss" xmlUrl="https://www.gq.com/feed/rss" />
+ <outline title="WSJ - Lifestyle" type="rss" xmlUrl="https://feeds.a.dj.com/rss/RSSLifestyle.xml" />
+ <outline title="Adweek" category="Business" type="rss" xmlUrl="https://www.adweek.com/feed/" />
+ <outline title="Wired - Culture" category="Culture" type="rss" xmlUrl="https://www.wired.com/feed/category/culture/latest/rss" />
+ <outline title="The Ringer - MLB" category="Sports" type="rss" xmlUrl="https://www.theringer.com/rss/mlb/index.xml" />
+ <outline title="The Ringer - NFL" type="rss" xmlUrl="https://www.theringer.com/rss/nfl/index.xml" />
+ <outline title="Front Office Sports" category="Sports" type="rss" xmlUrl="https://frntofficesport.com/feed" />
+ <outline title="Dezeen" category="Architecture" type="rss" xmlUrl="http://www.dezeen.com/feed/" />
+ <outline title="Daring Fireball" category="Page 1" type="rss" xmlUrl="http://daringfireball.net/feeds/main" />
+ <outline title="NYT > Sports" category="Sports" type="rss" xmlUrl="https://rss.nytimes.com/services/xml/rss/nyt/Sports.xml" />
+ <outline title="The Ringer - Movies" type="rss" xmlUrl="https://www.theringer.com/rss/movies/index.xml" />
+ <outline title="The Verge - Reviews" type="rss" xmlUrl="https://www.theverge.com/rss/reviews/index.xml" />
+ <outline title="Latest Content - Gear Patrol" type="rss" xmlUrl="https://www.gearpatrol.com/rss/all.xml/" />
+ <outline title="The Verge - Sciences" type="rss" xmlUrl="https://www.theverge.com/rss/science/index.xml" />
+ <outline title="Starred Articles" category="Articles" type="rss" xmlUrl="https://feedbin.com/starred/aa4345a096c560a305dbed2e21c75aaf.xml" />
+ <outline title="The Ringer - Music" category="Music,Culture" type="rss" xmlUrl="https://www.theringer.com/rss/music/index.xml" />
+ <outline title="Pitchfork - News" category="Music" type="rss" xmlUrl="https://pitchfork.com/feed/feed-news/rss" />
+ <outline title="Condé Nast Traveler" category="Jetset" type="rss" xmlUrl="https://www.cntraveler.com/feed/rss" />
+ <outline title="Architectural Digest" category="Architecture" type="rss" xmlUrl="https://www.architecturaldigest.com/feed/rss" />
+ <outline title="Style - Esquire" type="rss" xmlUrl="https://www.esquire.com/rss/style.xml/" />
+ <outline title="Esquire - Food & Drink" category="Food" type="rss" xmlUrl="https://www.esquire.com/rss/food-drink.xml/" />
+ <outline title="Vanity Fair" category="Culture" type="rss" xmlUrl="https://www.vanityfair.com/feed/rss" />
+ <outline title="Friends of Type" category="Creativity" type="rss" xmlUrl="https://feeds.feedburner.com/FriendsOfType" />
+ <outline title="The New Yorker - Sports" category="Sports" type="rss" xmlUrl="https://www.newyorker.com/feed/news/sporting-scene" />
+ <outline title="The Verge - Gadgets" type="rss" xmlUrl="https://www.theverge.com/rss/gadgets/index.xml" />
+ <outline title="The Verge - Climates" type="rss" xmlUrl="https://www.theverge.com/rss/climate-change/index.xml" />
+ <outline title="Business" category="Business" type="rss" xmlUrl="http://deadline.com/v/business/feed/" />
+ <outline title="Entertainment - Esquire" category="Culture" type="rss" xmlUrl="https://www.esquire.com/rss/entertainment.xml/" />
+ <outline title="Washington Post" type="rss" xmlUrl="https://feeds.washingtonpost.com/rss/national?itid=lk_inline_manual_32" />
+ <outline title="Travel Stories,News,and Guides for Discerning Travelers" category="Jetset" type="rss" xmlUrl="https://www.afar.com/index.atom" />
+ <outline title="Hypebeast" type="rss" xmlUrl="https://hypebeast.com/fashion/feed" />
+ <outline title="Sports Venue Business (SVB)" category="Sports" type="rss" xmlUrl="https://sportsvenuebusiness.com/feed/" />
+ <outline title="The Verge - Films" category="Culture" type="rss" xmlUrl="https://www.theverge.com/rss/film/index.xml" />
+ <outline title="404 Media" category="Future" type="rss" xmlUrl="https://www.404media.co/rss" />
+ <outline title="Brie Larson" category="Page 1,Culture" type="rss" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCN_GNYmF_jOpv8Yoh3KBILA" />
+ <outline title="Waxy.org - Links" category="Page 1,Culture" type="rss" xmlUrl="https://waxy.org/category/links/feed/" />
+ <outline title="Skift" category="Jetset" type="rss" xmlUrl="https://skift.com/feed/" />
+ <outline title="Outside" type="rss" xmlUrl="https://www.outsideonline.com/outdoor-adventure/feed/" />
+ <outline title="Google Alert - \"we are social\"" type="rss" xmlUrl="https://www.google.com/alerts/feeds/06931273505346915527/13098900911940368721" />
+ <outline title="Hypebeast" type="rss" xmlUrl="https://hypebeast.com/footwear/feed" />
+ <outline title="Boardroom" category="Culture" type="rss" xmlUrl="https://boardroom.tv/feed/" />
+ <outline title="This Is The Place I Was Telling You About" type="rss" xmlUrl="http://www.thisistheplaceiwastellingyouabout.com/everyday?format=rss" />
+ <outline title="Hypebeast" type="rss" xmlUrl="https://hypebeast.com/automotive/feed" />
+ <outline title="Hypebeast" type="rss" xmlUrl="https://hypebeast.com/watches/feed" />
+ <outline title="The Messenger" category="Sports" type="rss" xmlUrl="https://themessenger.com/rss/category/sports/feed.xml" />
+ <outline title="Hypebeast" category="Music" type="rss" xmlUrl="https://hypebeast.com/music/feed" />
+ <outline title="Music" category="Music" type="rss" xmlUrl="https://www.latimes.com/entertainment-arts/music/rss2.0.xml" />
+ <outline title="Travel & Experiences" category="Jetset" type="rss" xmlUrl="https://www.latimes.com/travel/rss2.0.xml" />
+ <outline title="Hypebeast" category="Food" type="rss" xmlUrl="https://hypebeast.com/food-beverage/feed" />
+ <outline title="Hypebeast" category="Culture" type="rss" xmlUrl="https://hypebeast.com/entertainment/feed" />
+ <outline title="Food: Recipes & Gear for Outdoor Cooking - Outside Online" category="Food" type="rss" xmlUrl="https://www.outsideonline.com/food/feed" />
+ <outline title="Outside" category="Jetset" type="rss" xmlUrl="https://www.outsideonline.com/adventure-travel/feed/" />
+ <outline title="(Sub)Culture – Rolling Stone" category="Culture" type="rss" xmlUrl="https://www.rollingstone.com/culture/feed/" />
+ <outline title="Abduzeedo" category="Creativity" type="rss" xmlUrl="https://abduzeedo.com/feed" />
+ <outline title="Hypebeast" category="Culture" type="rss" xmlUrl="https://hypebeast.com/art/feed" />
+ <outline title="Apartamento Magazine" category="Creativity" type="rss" xmlUrl="https://www.apartamentomagazine.com/stories/feed/" />
+ <outline title="Hypebeast" type="rss" xmlUrl="https://hypebeast.com/tech/feed" />
+ <outline title="Blog — I Love Typography" category="Creativity" type="rss" xmlUrl="https://ilovetypography.com/blog/feed/" />
+ <outline title="Study Architecture" category="Architecture,Culture" type="rss" xmlUrl="https://studyarchitecture.com/feed/" />
+ <outline title="Interviews - Made By Folk" category="Creativity" type="rss" xmlUrl="https://www.madebyfolk.com/interviews?format=rss" />
+ <outline title="Eater - Eater Travel" category="Jetset,Food" type="rss" xmlUrl="https://www.eater.com/rss/travel-restaurants/index.xml" />
+ <outline title="a16z crypto" type="rss" xmlUrl="https://a16zcrypto.com/feed/" />
+ <outline title="Bloomberg Businessweek" type="rss" xmlUrl="http://businessweek.tumblr.com/rss" />
+ <outline title="Austin City Limits" category="Music,Austin" type="rss" xmlUrl="http://acltv.com/feed/" />
+ <outline title="First Round Review" type="rss" xmlUrl="https://review.firstround.com/feed.xml" />
+ <outline title="Community Impact - Impact" category="Austin" type="rss" xmlUrl="https://communityimpact.com/section/austin/northwest-austin/feed" />
+ <outline title="Aeon | a world of ideas" type="rss" xmlUrl="http://aeon.co/feed.rss" />
+ <outline title="Why is this interesting?" category="Page 1,Creativity" type="rss" xmlUrl="https://whyisthisinteresting.substack.com/feed" />
+ <outline title="Anchor Change" type="rss" xmlUrl="https://anchorchange.substack.com/feed" />
+ <outline title="Blackbird Spyplane" category="Page 1" type="rss" xmlUrl="https://www.blackbirdspyplane.com/feed" />
+ <outline title="Freddie deBoer" type="rss" xmlUrl="https://freddiedeboer.substack.com/feed" />
+ <outline title="Garbage Day" category="Page 1,Culture" type="rss" xmlUrl="https://www.garbageday.email/feed" />
+ <outline title="Huddle Up" category="Page 1" type="rss" xmlUrl="https://huddleup.substack.com/feed" />
+ <outline title="Kyle Chayka Industries" category="Culture" type="rss" xmlUrl="https://kylechayka.substack.com/feed" />
+ <outline title="MONOLOGUE" category="Page 1" type="rss" xmlUrl="http://bobbyhundreds.substack.com/feed" />
+ <outline title="Today in Tabs" type="rss" xmlUrl="https://www.todayintabs.com/feed" />
+ <outline title="Big Technology" category="Future" type="rss" xmlUrl="https://www.bigtechnology.com/feed" />
+ <outline title="The Future,Now and Then" type="rss" xmlUrl="https://davekarpf.substack.com/feed" />
+ <outline title="In the Writing Burrow" type="rss" xmlUrl="https://margaretatwood.substack.com/feed" />
+ <outline title="Metalabel" type="rss" xmlUrl="https://metalabel.substack.com/feed" />
+ <outline title="Culture Study" type="rss" xmlUrl="https://annehelen.substack.com/feed" />
+ <outline title="Deep Fix" type="rss" xmlUrl="https://deepfix.substack.com/feed" />
+ <outline title="Kareem Abdul-Jabbar" category="Culture" type="rss" xmlUrl="https://kareem.substack.com/feed" />
+ <outline title="The Contender" type="rss" xmlUrl="https://thecontender.substack.com/feed" />
+ <outline title="The Supersonic" type="rss" xmlUrl="https://www.thesupersonic.blackbird.xyz/feed" />
+ <outline title="Other Internet / Updates" type="rss" xmlUrl="https://otherinternet.substack.com/feed/" />
+ <outline title="Ask Polly" type="rss" xmlUrl="https://www.ask-polly.com/feed" />
+ <outline title="Bad Sandwich Chronicles Beyond Thunderdome" type="rss" xmlUrl="https://badsandwich.substack.com/feed" />
+ <outline title="Exponential View" type="rss" xmlUrl="https://www.exponentialview.co/posts/rss/" />
+ <outline title="Feed Me" type="rss" xmlUrl="https://emilysundberg.substack.com/feed" />
+ <outline title="Game within the Game" type="rss" xmlUrl="https://gamewithinthegame.substack.com/feed" />
+ <outline title="The Cereal Aisle by Leandra Medine Cohen" type="rss" xmlUrl="https://leandramcohen.substack.com/feed" />
+ <outline title="ICYMI by Lia Haberman" type="rss" xmlUrl="https://liahaberman.substack.com/feed" />
+ <outline title="Marc Stein" type="rss" xmlUrl="https://marcstein.substack.com/feed" />
+ <outline title="NFL,Weakly" category="Sports" type="rss" xmlUrl="https://nflweakly.substack.com/feed" />
+ <outline title="Popular Information" type="rss" xmlUrl="https://popular.info/feed" />
+ <outline title="Sports Tech Feed" category="Sports" type="rss" xmlUrl="https://sportstechfeed.substack.com/feed" />
+ <outline title="TheSequence" type="rss" xmlUrl="https://thesequence.substack.com/feed" />
+ <outline title="The Trend Report™" category="Culture" type="rss" xmlUrl="https://1234kyle5678.substack.com/feed" />
+ <outline title="the smitten kitchen digest" type="rss" xmlUrl="https://smittenkitchen.substack.com/feed" />
+ <outline title="Platformer" type="rss" xmlUrl="https://www.platformer.news/feed" />
+ <outline title="PALM REPORT by Poolsuite" type="rss" xmlUrl="https://www.palm.report/feed" />
+ <outline title="One’s Substack" type="rss" xmlUrl="https://onethingnewsletter.substack.com/feed" />
+ <outline title="Embedded" type="rss" xmlUrl="https://embedded.substack.com/feed" />
+ <outline title="SNAKE" type="rss" xmlUrl="https://snake.substack.com/feed" />
+ <outline title="Patti Smith" type="rss" xmlUrl="https://pattismith.substack.com/feed/" />
+ <outline title="The Sociology of Business" type="rss" xmlUrl="https://andjelicaaa.substack.com/feed" />
+ <outline title="Hi Everyone with Hillary Kerr" type="rss" xmlUrl="https://hillarykerr.substack.com/feed" />
+ <outline title="Your School Of Inspiration" type="rss" xmlUrl="https://yourschoolofinspiration.substack.com/feed" />
+ <outline title="The Sublime Newsletter" type="rss" xmlUrl="https://sublimeinternet.substack.com/feed" />
+ <outline title="The Feed" type="rss" xmlUrl="https://androbin.substack.com/feed" />
+ <outline title="BrXnd Dispatch" category="AI,Future" type="rss" xmlUrl="https://newsletter.brxnd.ai/feed" />
+ <outline title="The Honest Broker" type="rss" xmlUrl="https://www.honest-broker.com/feed" />
+ <outline title="The Bob Lefsetz Podcast" type="rss" xmlUrl="http://feeds.podtrac.com/2n7wFVhUHmfa" />
+ <outline title="Lefsetz Letter" type="rss" xmlUrl="https://lefsetz.com/wordpress/feed/" />
+ <outline title="BIG by Matt Stoller" type="rss" xmlUrl="https://www.thebignewsletter.com/feed" />
+ <outline title="99% Derisible" type="rss" xmlUrl="https://99d.substack.com/feed" />
+ <outline title="Arnold's Pump Club" type="rss" xmlUrl="https://arnoldspumpclub.com/blogs/newsletter.atom" />
+ <outline title="AFAR Travel" category="Jetset" type="rss" xmlUrl="https://www.afar.com/feeds/article.rss" />
+ <outline title="Axios - Technology" type="rss" xmlUrl="https://rss.app/feeds/8aptf7pcAH4jhbNw.xml" />
+ <outline title="Morning Consult" type="rss" xmlUrl="https://morningconsult.com/feed" />
+ <outline title="Stratechery by Ben Thompson" category="Page 1" type="rss" xmlUrl="https://stratechery.com/feed" />
+ <outline title="Puck" type="rss" xmlUrl="https://puck.news/author/william-cohan/feed/" />
+ <outline title="No Mercy / No Malice" category="Page 1" type="rss" xmlUrl="https://www.profgalloway.com/feed/" />
+ <outline title="Today in Tabs" category="Page 1" type="rss" xmlUrl="https://rss.beehiiv.com/feeds/ZRiesnGI0u.xml" />
+ <outline title="XP Land" type="rss" xmlUrl="https://www.xp.land/feed/" />
+ <outline title="Perfectly Imperfect" category="Page 1,Culture" type="rss" xmlUrl="https://perfectlyimperfect.substack.com/feed" />
+ <outline title="8Ball" category="Page 1,Future,Culture" type="rss" xmlUrl="https://www.8ball.report/feed" />
+ <outline title="The Curiosity Chronicle" type="rss" xmlUrl="https://sahilbloom.substack.com/feed" />
+ <outline title="ribbonfarm" type="rss" xmlUrl="https://www.ribbonfarm.com/feed/" />
+ <outline title="Rest of World -" type="rss" xmlUrl="https://restofworld.org/feed/latest" />
+ <outline title="Tech Policy Press" type="rss" xmlUrl="https://techpolicy.press/feed/" />
+ <outline title="Ridiculous Little Things" type="rss" xmlUrl="https://ridiculouslittlethings.substack.com/feed" />
+ <outline title="Wait But Why" type="rss" xmlUrl="https://waitbutwhy.com/feed" />
+ <outline title="Recomendo" type="rss" xmlUrl="https://www.recomendo.com/feed" />
+ <outline title="Ben Werdmüller" type="rss" xmlUrl="https://werd.io/?_t=rss" />
+ <outline title="Techno Sapiens" type="rss" xmlUrl="https://technosapiens.substack.com/feed" />
+ <outline title="The Daily Upside" type="rss" xmlUrl="https://www.thedailyupside.com/feed/" />
+ <outline title="Howard Lindzon" type="rss" xmlUrl="https://howardlindzon.com/feed/" />
+ <outline title="The Future Does Not Fit In The Containers Of The Past" type="rss" xmlUrl="https://rishad.substack.com/feed" />
+ <outline title="The Ideaspace" type="rss" xmlUrl="https://ideaspace.ystrickler.com/feed" />
+ <outline title="The.Ink" type="rss" xmlUrl="https://the.ink/feed" />
+ <outline title="[SIC] Weekly" type="rss" xmlUrl="https://sicweekly.substack.com/feed" />
+ <outline title="Public Domain Movies" type="rss" xmlUrl="https://pdmovies.substack.com/feed" />
+ <outline title="Matt Levine - Bloomberg Opinion Columnist" type="rss" xmlUrl="https://www.bloomberg.com/authors/ARbTQlRLRjE/matthew-s-levine.rss" />
+ <outline title="Daily Dirt" type="rss" xmlUrl="https://rss.beehiiv.com/feeds/1E4YmoKGAu.xml" />
+ <outline title="Garbage Day" type="rss" xmlUrl="https://rss.beehiiv.com/feeds/99VTTjt0N1.xml" />
+ <outline title="Creator Economy by Peter Yang" type="rss" xmlUrl="https://creatoreconomy.so/feed" />
+ <outline title="As In The Lake" type="rss" xmlUrl="https://asinthelake.substack.com/feed" />
+ <outline title="Not Boring by Packy McCormick" type="rss" xmlUrl="https://www.notboring.co/feed" />
+ <outline title="Deez Links" type="rss" xmlUrl="https://www.deezlinks.com/feed" />
+ <outline title="Deep Voices" type="rss" xmlUrl="https://deepvoices.substack.com/feed" />
+ <outline title="Lenny's Newsletter" type="rss" xmlUrl="https://www.lennysnewsletter.com/feed" />
+ <outline title="Sports Pundit" type="rss" xmlUrl="https://sportspundit.substack.com/feed" />
+ <outline title="Li's Newsletter" type="rss" xmlUrl="https://www.lisnewsletter.com/feed" />
+ <outline title="Kofie Why?" type="rss" xmlUrl="https://kofie.substack.com/feed" />
+ <outline title="Jesse Ventura's Die First Then Quit" type="rss" xmlUrl="https://jesseventura.substack.com/feed" />
+ <outline title="The Fox Is Black" type="rss" xmlUrl="https://thefoxisblack.substack.com/feed" />
+ <outline title="Cabinet of Curiosities" type="rss" xmlUrl="https://acabinetofcuriosities.substack.com/feed" />
+ <outline title="Strange Loop Canon" type="rss" xmlUrl="https://www.strangeloopcanon.com/feed" />
+ <outline title="Webb Chatham Report" type="rss" xmlUrl="https://rickwebb.substack.com/feed" />
+ <outline title="Paradox Newsletter" type="rss" xmlUrl="https://miguelrivera.substack.com/feed" />
+ <outline title="Snaxshot" type="rss" xmlUrl="https://www.snaxshot.com/feed" />
+ <outline title="Newcomer" type="rss" xmlUrl="https://newcomer.substack.com/feed" />
+ <outline title="Astral Codex Ten" type="rss" xmlUrl="https://www.astralcodexten.com/feed" />
+ <outline title="One Useful Thing" type="rss" xmlUrl="https://www.oneusefulthing.org/feed" />
+ <outline title="The Action Cookbook Newsletter" type="rss" xmlUrl="https://actioncookbook.substack.com/feed" />
+ <outline title="Feed Me" type="rss" xmlUrl="https://www.readfeedme.com/feed" />
+ <outline title="Zine" type="rss" xmlUrl="https://zine.kleinkleinklein.com/feed" />
+ <outline title="Flaming Hydra" type="rss" xmlUrl="https://flaminghydra.com/rss/" />
+ <outline title="A Small and Simple Thing" type="rss" xmlUrl="https://brooksreitz.substack.com/feed" />
+ <outline title="After School" type="rss" xmlUrl="https://afterschool.substack.com/feed" />
+ <outline title="The Culture We Deserve" type="rss" xmlUrl="https://theculturewedeserve.substack.com/feed" />
+ <outline title="GOOD THINKING" type="rss" xmlUrl="https://ingoodco.substack.com/feed" />
+ <outline title="Channel 6" type="rss" xmlUrl="https://channel-6.ghost.io/rss/" />
+ <outline title="[SIC] Daily" type="rss" xmlUrl="https://sicday.substack.com/feed" />
+ <outline title="A RESTLESS TRANSPLANT" type="rss" xmlUrl="https://arestlesstransplant.substack.com/feed" />
+ <outline title="Mensweird" type="rss" xmlUrl="https://mensweird.substack.com/feed" />
+ <outline title="Central Division" type="rss" xmlUrl="https://centraldivision.substack.com/feed" />
+ <outline title="Back Row" type="rss" xmlUrl="https://amyodell.substack.com/feed" />
+ <outline title="FOUND LA" type="rss" xmlUrl="https://www.itsfoundla.com/feed" />
+ <outline title="The Quadrilateral" type="rss" xmlUrl="https://quadrilateral.substack.com/feed" />
+ <outline title="The Search Continues" type="rss" xmlUrl="https://thesearchcontinues.substack.com/feed" />
+ <outline title="Meditations in an Emergency" type="rss" xmlUrl="https://rosecrans.substack.com/feed" />
+ <outline title="Yolo Journal" type="rss" xmlUrl="https://www.yolojournal.com/feed/" />
+ <outline title="FOUND NY" type="rss" xmlUrl="https://www.foundny.com/feed" />
+ <outline title="The Wm Brown Weekly" type="rss" xmlUrl="https://wmbrown.substack.com/feed" />
+ <outline title="The Material Review" type="rss" xmlUrl="https://www.thematerialreview.com/feed" />
+ <outline title="5 Things You Should Buy" type="rss" xmlUrl="https://5thingsyoushouldbuy.substack.com/feed" />
+ <outline title="Y-Option: College Football with Yogi Roth" type="rss" xmlUrl="https://www.y-option.com/feed" />
+ <outline title="The Land of Random" type="rss" xmlUrl="https://thelandofrandom.substack.com/feed" />
+ <outline title="Who Do You Know?" type="rss" xmlUrl="https://www.whodoyouknow.nyc/feed" />
+ <outline title="Pirate Wires" type="rss" xmlUrl="https://www.piratewires.com/feed" />
+ <outline title="Epsilon Theory" type="rss" xmlUrl="https://www.epsilontheory.com/feed/" />
+ <outline title="Impersonal Foul" type="rss" xmlUrl="https://www.impersonalfoul.com/feed" />
+ <outline title="Long Live" type="rss" xmlUrl="https://longlive.substack.com/feed" />
+ <outline title="The Modern Middle" type="rss" xmlUrl="https://themodernmiddle.substack.com/feed" />
+ <outline title="Jing Daily" type="rss" xmlUrl="http://www.jingdaily.com/feed/" />
+ <outline title="International Intrigue" type="rss" xmlUrl="https://internationalintrigue.substack.com/feed" />
+ <outline title="Intrigue" type="rss" xmlUrl="https://www.internationalintrigue.io/feed/" />
+ <outline title="Throwing Fits" type="rss" xmlUrl="https://anchor.fm/s/4e6fffb0/podcast/rss" />
+ <outline title="Read Max" type="rss" xmlUrl="https://maxread.substack.com/feed" />
+ <outline title="After Babel" type="rss" xmlUrl="https://jonathanhaidt.substack.com/feed" />
+ <outline title="as seen on" type="rss" xmlUrl="https://asseenonbyochuko.substack.com/feed" />
+ <outline title="Texas Monthly" type="rss" xmlUrl="http://feeds.feedburner.com/texas-monthly" />
+ <outline title="Texas Monthly – Featured" type="rss" xmlUrl="https://features.texasmonthly.com/feed/" />
+ <outline title="Digital Native" type="rss" xmlUrl="https://www.digitalnative.tech/feed" />
+ <outline title="Simple Magic" type="rss" xmlUrl="https://www.simplemagic.ca/rss/" />
+ <outline title="The Barbed Wire" type="rss" xmlUrl="https://thebarbedwire.com/feed/" />
+ <outline title="Numlock News" type="rss" xmlUrl="https://www.numlock.com/feed" />
+ <outline title="Already Happened" type="rss" xmlUrl="https://alreadyhappened.xyz/feed" />
+ <outline title="The Intrinsic Perspective" type="rss" xmlUrl="https://www.theintrinsicperspective.com/feed" />
+ <outline title="a newsletter" type="rss" xmlUrl="https://anewsletter.alisoneroman.com/feed" />
+ <outline title="The Stanza" type="rss" xmlUrl="https://www.thestanzamedia.com/feed" />
+ <outline title="The Profile" type="rss" xmlUrl="https://theprofile.substack.com/feed" />
+ <outline title="Link in Bio" type="rss" xmlUrl="https://milkkarten.substack.com/feed" />
+ <outline title="Slow Boring" type="rss" xmlUrl="https://www.slowboring.com/feed" />
+ <outline title="a16z speedrun" type="rss" xmlUrl="https://speedrun.substack.com/feed" />
+ <outline title="Adjacent Possible" type="rss" xmlUrl="https://adjacentpossible.substack.com/feed" />
+ <outline title="Bryan Braun - Designer/Developer" type="rss" xmlUrl="https://www.bryanbraun.com/rss.xml" />
+ <outline title="BrandStrat" type="rss" xmlUrl="https://brandstrat.substack.com/feed" />
+ <outline title="The Counteroffensive with Tim Mak" type="rss" xmlUrl="https://www.counteroffensive.news/feed" />
+ <outline title="Core Memory" type="rss" xmlUrl="https://www.corememory.com/feed" />
+ <outline title="Culture of Sport" type="rss" xmlUrl="https://cultureofsport.substack.com/feed" />
+ <outline title="DAYBAKER by Chad Robertson" type="rss" xmlUrl="https://chadrobertson.substack.com/feed/" />
+ <outline title="Donkey Thoughts with Nick Offerman" type="rss" xmlUrl="https://nickofferman.substack.com/feed" />
+ <outline title="Yung Pueblo Notes" type="rss" xmlUrl="https://yungpueblo.substack.com/feed" />
+ <outline title="First Rodeo" type="rss" xmlUrl="https://1strodeo.substack.com/feed/" />
+ <outline title="GeoSport" type="rss" xmlUrl="https://profchadwick.substack.com/feed" />
+ <outline title="Hot Takes" type="rss" xmlUrl="https://www.hottakes.space/feed" />
+ <outline title="Sports Politika" type="rss" xmlUrl="https://www.sportspolitika.news/feed" />
+ <outline title="thinking out loud" type="rss" xmlUrl="https://nikitawalia.substack.com/feed" />
+ <outline title="NextDraft on Substack" type="rss" xmlUrl="https://managingeditor.substack.com/feed" />
+ <outline title="SportsVerse" type="rss" xmlUrl="https://sportsverse.substack.com/feed" />
+ <outline title="sprezza" type="rss" xmlUrl="https://www.sprezza.xyz/feed" />
+ <outline title="Good Morning It's Basketball" type="rss" xmlUrl="https://ziller.substack.com/feed" />
+ <outline title="Vittles" type="rss" xmlUrl="https://vittles.substack.com/feed" />
+ <outline title="OnHoops" type="rss" xmlUrl="https://www.kdonhoops.com/rss/" />
+ <outline title="Stratechery" type="rss" xmlUrl="https://stratechery.passport.online/feed/rss/CSqCVyk8LDg6Y5igzKBjP" />
+</outline>
+</body>
+</opml>
