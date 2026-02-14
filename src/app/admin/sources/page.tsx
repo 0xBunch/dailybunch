@@ -80,7 +80,7 @@ export default async function SourcesAdminPage() {
         className="border-b px-6 py-3"
         style={{ borderColor: "var(--border)", background: "var(--ink)" }}
       >
-        <div className="max-w-4xl mx-auto flex items-center gap-8">
+        <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
             <span
               className="text-2xl font-medium tabular-nums"
@@ -123,7 +123,7 @@ export default async function SourcesAdminPage() {
         </div>
       </div>
 
-      <main className="max-w-4xl mx-auto px-6 py-8">
+      <main className="px-6 py-8">
         {/* Add Source Form */}
         <div
           className="border mb-8 p-6"
@@ -224,25 +224,6 @@ export default async function SourcesAdminPage() {
               </button>
             </div>
           </form>
-        </div>
-
-        {/* Legend */}
-        <div
-          className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs"
-          style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}
-        >
-          <span>
-            <strong>Dashboard:</strong> Show on trending
-          </span>
-          <span>
-            <strong>Own Links:</strong> Include self-referential links
-          </span>
-          <span>
-            <strong>Tier:</strong> T1=Major Pubs, T2=Top Newsletters, T3=Quality Blogs, T4=Aggregators
-          </span>
-          <span>
-            <strong>Poll:</strong> 15min=Realtime, Hourly, Daily
-          </span>
         </div>
 
         {/* Source Feed */}
@@ -360,148 +341,91 @@ export default async function SourcesAdminPage() {
                   )}
 
                   {/* Controls */}
-                  <div className="flex items-center gap-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-                    <form action={`/api/admin/sources/${source.id}`} method="POST">
-                      <input
-                        type="hidden"
-                        name="showOnDashboard"
-                        value={source.showOnDashboard ? "false" : "true"}
-                      />
-                      <button
-                        type="submit"
-                        className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: source.showOnDashboard
-                            ? "var(--accent-warm)"
-                            : "var(--surface-cream)",
-                          color: source.showOnDashboard ? "#fff" : "var(--muted)",
-                          border: source.showOnDashboard
-                            ? "1px solid var(--accent-warm)"
-                            : "1px solid var(--border)",
-                        }}
-                      >
-                        Dashboard {source.showOnDashboard ? "ON" : "OFF"}
-                      </button>
-                    </form>
-                    <form action={`/api/admin/sources/${source.id}`} method="POST">
-                      <input
-                        type="hidden"
-                        name="includeOwnLinks"
-                        value={source.includeOwnLinks ? "false" : "true"}
-                      />
-                      <button
-                        type="submit"
-                        className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: source.includeOwnLinks
-                            ? "var(--status-success)"
-                            : "var(--surface-cream)",
-                          color: source.includeOwnLinks ? "#fff" : "var(--muted)",
-                          border: source.includeOwnLinks
-                            ? "1px solid var(--status-success)"
-                            : "1px solid var(--border)",
-                        }}
-                      >
-                        Own Links {source.includeOwnLinks ? "ON" : "OFF"}
-                      </button>
-                    </form>
-                    <form action={`/api/admin/sources/${source.id}`} method="POST" className="flex items-center gap-1">
-                      <select
-                        name="tier"
-                        defaultValue={source.tier}
-                        className="text-xs px-2 py-1"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: "var(--surface-cream)",
-                          border: "1px solid var(--border)",
-                          color: "var(--ink)",
-                        }}
-                      >
-                        <option value="TIER_1">T1 (10)</option>
-                        <option value="TIER_2">T2 (7)</option>
-                        <option value="TIER_3">T3 (5)</option>
-                        <option value="TIER_4">T4 (2)</option>
-                      </select>
-                      <button
-                        type="submit"
-                        className="text-xs px-2 py-1 transition-opacity hover:opacity-80"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: "var(--ink)",
-                          color: "#fff",
-                          border: "none",
-                        }}
-                      >
-                        Set
-                      </button>
-                    </form>
-                    <form action={`/api/admin/sources/${source.id}`} method="POST" className="flex items-center gap-1">
-                      <select
-                        name="pollFrequency"
-                        defaultValue={source.pollFrequency}
-                        className="text-xs px-2 py-1"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: "var(--surface-cream)",
-                          border: "1px solid var(--border)",
-                          color: "var(--ink)",
-                        }}
-                      >
-                        <option value="realtime">15min</option>
-                        <option value="hourly">Hourly</option>
-                        <option value="daily">Daily</option>
-                      </select>
-                      <button
-                        type="submit"
-                        className="text-xs px-2 py-1 transition-opacity hover:opacity-80"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: "var(--ink)",
-                          color: "#fff",
-                          border: "none",
-                        }}
-                      >
-                        Set
-                      </button>
-                    </form>
-                    {source.type === "rss" && source.url && (
-                      <form action={`/api/admin/sources/${source.id}/fetch`} method="POST">
+                  <div className="pt-3 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+                    {/* Settings Row */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <form action={`/api/admin/sources/${source.id}`} method="POST">
+                        <input type="hidden" name="showOnDashboard" value={source.showOnDashboard ? "false" : "true"} />
                         <button
                           type="submit"
-                          className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
+                          className="text-xs px-2.5 py-1 transition-opacity hover:opacity-80"
                           style={{
                             fontFamily: "var(--font-mono)",
-                            background: "var(--ink)",
-                            color: "#fff",
-                            border: "1px solid var(--ink)",
+                            background: source.showOnDashboard ? "var(--accent-warm)" : "transparent",
+                            color: source.showOnDashboard ? "#fff" : "var(--muted)",
+                            border: `1px solid ${source.showOnDashboard ? "var(--accent-warm)" : "var(--border)"}`,
                           }}
                         >
-                          Fetch Now
+                          Dashboard
                         </button>
                       </form>
-                    )}
-                    <form action={`/api/admin/sources/${source.id}`} method="POST" className="ml-auto">
-                      <input type="hidden" name="active" value={source.active ? "false" : "true"} />
-                      <button
-                        type="submit"
-                        className="text-xs px-3 py-1 transition-opacity hover:opacity-80"
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          background: "transparent",
-                          color: source.active ? "var(--status-error)" : "var(--status-success)",
-                          border: "1px solid currentColor",
-                        }}
-                      >
-                        {source.active ? "Deactivate" : "Activate"}
-                      </button>
-                    </form>
-                    <DeleteSourceButton
-                      sourceId={source.id}
-                      sourceName={source.name}
-                      mentionCount={source._count.mentions}
-                    />
+                      <form action={`/api/admin/sources/${source.id}`} method="POST">
+                        <input type="hidden" name="includeOwnLinks" value={source.includeOwnLinks ? "false" : "true"} />
+                        <button
+                          type="submit"
+                          className="text-xs px-2.5 py-1 transition-opacity hover:opacity-80"
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            background: source.includeOwnLinks ? "var(--status-success)" : "transparent",
+                            color: source.includeOwnLinks ? "#fff" : "var(--muted)",
+                            border: `1px solid ${source.includeOwnLinks ? "var(--status-success)" : "var(--border)"}`,
+                          }}
+                        >
+                          Own Links
+                        </button>
+                      </form>
+                      <span className="text-xs" style={{ color: "var(--border)" }}>|</span>
+                      <form action={`/api/admin/sources/${source.id}`} method="POST" className="flex items-center gap-1">
+                        <span className="text-xs" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>Tier</span>
+                        <select
+                          name="tier"
+                          defaultValue={source.tier}
+                          className="text-xs px-1.5 py-0.5"
+                          style={{ fontFamily: "var(--font-mono)", background: "var(--surface-cream)", border: "1px solid var(--border)", color: "var(--ink)" }}
+                        >
+                          <option value="TIER_1">T1</option>
+                          <option value="TIER_2">T2</option>
+                          <option value="TIER_3">T3</option>
+                          <option value="TIER_4">T4</option>
+                        </select>
+                        <button type="submit" className="text-xs px-1.5 py-0.5" style={{ fontFamily: "var(--font-mono)", background: "var(--ink)", color: "#fff", border: "none" }}>→</button>
+                      </form>
+                      <form action={`/api/admin/sources/${source.id}`} method="POST" className="flex items-center gap-1">
+                        <span className="text-xs" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>Poll</span>
+                        <select
+                          name="pollFrequency"
+                          defaultValue={source.pollFrequency}
+                          className="text-xs px-1.5 py-0.5"
+                          style={{ fontFamily: "var(--font-mono)", background: "var(--surface-cream)", border: "1px solid var(--border)", color: "var(--ink)" }}
+                        >
+                          <option value="realtime">15m</option>
+                          <option value="hourly">1h</option>
+                          <option value="daily">24h</option>
+                        </select>
+                        <button type="submit" className="text-xs px-1.5 py-0.5" style={{ fontFamily: "var(--font-mono)", background: "var(--ink)", color: "#fff", border: "none" }}>→</button>
+                      </form>
+                    </div>
+                    {/* Actions Row */}
+                    <div className="flex items-center gap-2">
+                      {source.type === "rss" && source.url && (
+                        <form action={`/api/admin/sources/${source.id}/fetch`} method="POST">
+                          <button type="submit" className="text-xs px-2.5 py-1 transition-opacity hover:opacity-80" style={{ fontFamily: "var(--font-mono)", background: "var(--ink)", color: "#fff", border: "none" }}>
+                            Fetch Now
+                          </button>
+                        </form>
+                      )}
+                      <form action={`/api/admin/sources/${source.id}`} method="POST" className="ml-auto">
+                        <input type="hidden" name="active" value={source.active ? "false" : "true"} />
+                        <button
+                          type="submit"
+                          className="text-xs px-2.5 py-1 transition-opacity hover:opacity-80"
+                          style={{ fontFamily: "var(--font-mono)", background: "transparent", color: source.active ? "var(--status-error)" : "var(--status-success)", border: "1px solid currentColor" }}
+                        >
+                          {source.active ? "Deactivate" : "Activate"}
+                        </button>
+                      </form>
+                      <DeleteSourceButton sourceId={source.id} sourceName={source.name} mentionCount={source._count.mentions} />
+                    </div>
                   </div>
 
                   {/* Internal Domains */}
